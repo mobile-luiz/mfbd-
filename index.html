@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>MFBD - Precificação Inteligente</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    
+    <script>
+        // Configuração do Firebase - MFBD
+        const firebaseConfig = {
+            apiKey: "AIzaSyBz8hhsSzicDiFHgK9LOfnZthFlmFEvJgk",
+            databaseURL: "https://mfbd-2991c-default-rtdb.firebaseio.com/"
+        };
+        
+        let firebaseApp = null;
+        let firebaseDatabase = null;
+        let firebaseConectado = false;
+        
+        try {
+            if (firebase.apps.length > 0) firebase.apps[0].delete();
+            firebaseApp = firebase.initializeApp(firebaseConfig);
+            firebaseDatabase = firebase.database(firebaseApp);
+            firebaseConectado = true;
+            console.log('✅ Firebase conectado');
+        } catch (e) {
+            console.error('❌ Firebase erro:', e);
+            firebaseConectado = false;
+        }
+    </script>
+</head>
+<body>
+    <!-- TELA DE LOGIN -->
+    <div id="tela-login" class="tela-login">
+        <div class="login-container">
+            <div class="login-header">
+                <h1>MFBD</h1>
+                <p>Precificação Inteligente</p>
+            </div>
+            <form onsubmit="fazerLogin(event)" class="login-form">
+                <div class="login-error" id="login-erro" style="display:none">⚠️ Email ou senha inválidos</div>
+                <div class="form-group">
+                    <label>📧 Email</label>
+                    <input type="email" id="login-email" placeholder="seu@email.com" value=" ">
+                </div>
+                <div class="form-group">
+                    <label>🔐 Senha</label>
+                    <div style="position:relative">
+                        <input type="password" id="login-senha" placeholder=" " value="123456" style="padding-right:45px">
+                        <button type="button" class="toggle-senha" onclick="toggleSenha()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer">👁️</button>
+                    </div>
+                </div>
+                <div id="login-loading" style="display:none">
+                    <span class="spinner"></span>
+                    <p>Verificando...</p>
+                </div>
+                <button type="submit" class="btn-login">🔐 Entrar</button>
+                <div class="login-footer"><small>MFBD Sistema Protegido</small></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- SISTEMA PRINCIPAL -->
+    <div id="sistema-principal" style="display:none">
+        <div class="container">
+            <div class="header">
+                <h1>MFBD</h1>
+                <p>Precificação Inteligente</p>
+                <div id="user-info-header"></div>
+            </div>
+            
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('input')">📋 INPUT</button>
+                <button class="tab" onclick="showTab('tabelas')">⚙️ TABELAS</button>
+                <button class="tab" onclick="showTab('calculo')">🔬 CÁLCULO</button>
+                <button class="tab" onclick="showTab('output')">📊 OUTPUT</button>
+                <button class="tab" onclick="showTab('historico')">📚 HISTÓRICO</button>
+                <button class="tab" onclick="showTab('dashboard')">📈 DASHBOARD</button>
+                <button class="tab" onclick="showTab('configuracoes')">⚙️ CONFIG</button>
+            </div>
+
+            <!-- ABA 1 - INPUT -->
+            <div id="input" class="tab-content active">
+                <h2>📝 Dados do Cliente e Negócio</h2>
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>Cliente / Negócio</h3>
+                        <div class="form-group"><label>Cliente</label><input type="text" id="cliente" placeholder="Ex: Empresa XYZ"></div>
+                        <div class="form-group"><label>Segmento</label>
+                            <select id="segmento">
+                                <option value="tecnologia">Tecnologia</option>
+                                <option value="varejo">Varejo</option>
+                                <option value="industria">Indústria</option>
+                                <option value="servicos">Serviços</option>
+                                <option value="saude">Saúde</option>
+                                <option value="educacao">Educação</option>
+                                <option value="financeiro">Financeiro</option>
+                                <option value="consultoria">Consultoria</option>
+                                <option value="marketing">Marketing</option>
+                                <option value="outros">Outros</option>
+                            </select>
+                        </div>
+                        <div class="grid-2">
+                            <div class="form-group"><label>Tipo</label>
+                                <select id="tipo"><option value="novo">Novo</option><option value="recorrente">Recorrente</option><option value="indicacao">Indicação</option></select>
+                            </div>
+                            <div class="form-group"><label>Risco</label>
+                                <select id="risco"><option value="baixo">Baixo</option><option value="medio">Médio</option><option value="alto">Alto</option></select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>Serviço / Produto</h3>
+                        <div class="form-group"><label>Produto</label>
+                            <select id="produto">
+                                <option value="consultoria">Consultoria Estratégica</option>
+                                <option value="desenvolvimento">Desenvolvimento de Software</option>
+                                <option value="design">Design UX/UI</option>
+                                <option value="marketing">Marketing Digital</option>
+                                <option value="suporte">Suporte Técnico</option>
+                                <option value="treinamento">Treinamento</option>
+                                <option value="implementacao">Implementação</option>
+                                <option value="manutencao">Manutenção</option>
+                                <option value="analise">Análise de Dados</option>
+                                <option value="cloud">Cloud Computing</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Escopo</label><textarea id="escopo" rows="2" placeholder="Descreva o escopo..."></textarea></div>
+                        <div class="grid-2">
+                            <div class="form-group"><label>Complexidade</label>
+                                <select id="complexidade"><option value="baixa">Baixa</option><option value="media">Média</option><option value="alta">Alta</option></select>
+                            </div>
+                            <div class="form-group"><label>Urgência</label>
+                                <select id="urgencia"><option value="normal">Normal</option><option value="urgente">Urgente</option></select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <h2>💰 Modelo de Cobrança</h2>
+                <div class="card">
+                    <div class="radio-group">
+                        <label class="radio-option selected"><input type="radio" name="cobranca" value="hora" checked> Hora</label>
+                        <label class="radio-option"><input type="radio" name="cobranca" value="fechado"> Preço fechado</label>
+                        <label class="radio-option"><input type="radio" name="cobranca" value="retainer"> Retainer (mensal)</label>
+                        <label class="radio-option"><input type="radio" name="cobranca" value="exito"> Êxito apenas</label>
+                        <label class="radio-option"><input type="radio" name="cobranca" value="hibrido"> Híbrido</label>
+                    </div>
+                </div>
+                
+                <h2>👥 Equipe e Esforço</h2>
+                <div class="card">
+                    <div id="perfis-container"></div>
+                    <button type="button" class="btn btn-secondary" onclick="adicionarPerfil()" style="width:100%">+ Adicionar Perfil</button>
+                    <div class="form-group mt-4">
+                        <label>% Risco de escopo (buffer)</label>
+                        <input type="number" id="riscoEscopo" value="20" min="0" max="100" step="1">
+                        <div class="info-text">Buffer: Baixa+10% | Média+20% | Alta+30% | Urgente+20%</div>
+                    </div>
+                </div>
+                
+                <h2>📊 Condições Comerciais</h2>
+                <div class="grid-3">
+                    <div class="card">
+                        <h3>Financeiro</h3>
+                        <div class="form-group"><label>Entrada (%)</label><input type="number" id="entrada" value="50" min="0" max="100" step="1"></div>
+                        <div class="form-group"><label>Parcelas</label><input type="number" id="parcelas" value="1" min="1" max="24" step="1"></div>
+                        <div class="form-group"><label>Desconto (%)</label><input type="number" id="desconto" value="0" min="0" max="30" step="0.5"></div>
+                    </div>
+                    <div class="card">
+                        <h3>Parcerias</h3>
+                        <div class="form-group"><label>Parceiro</label><select id="parceiro"><option value="nao">Não</option><option value="sim">Sim</option></select></div>
+                        <div class="form-group"><label>% Parceiro</label><input type="number" id="percParceiro" value="0" min="0" max="50" step="0.5"></div>
+                    </div>
+                    <div class="card">
+                        <h3>CS</h3>
+                        <div class="form-group"><label>Aplica CS</label><select id="aplicaCS"><option value="sim">Sim</option><option value="nao">Não</option></select></div>
+                        <div class="form-group"><label>% CS</label><input type="number" id="percCS" value="7.5" min="0" max="20" step="0.1"></div>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button type="button" class="btn btn-primary" onclick="calcular()">🚀 CALCULAR PREÇO</button>
+                </div>
+            </div>
+
+            <!-- ABA 2 - TABELAS -->
+            <div id="tabelas" class="tab-content">
+                <h2>⚙️ Parâmetros</h2>
+                
+                <h3>1) Custo-hora por perfil (fully loaded)</h3>
+                <div class="table-responsive">
+                    <table>
+                        <thead><tr><th>Perfil</th><th>Salário</th><th>Encargos</th><th>Benefícios</th><th>Total</th><th>Horas</th><th>Overhead/h</th><th>Custo/h</th></tr></thead>
+                        <tbody>
+                            <tr><td>Estagiário</td><td><input type="number" id="salarioEstag" value="1000" step="100" onchange="atualizarTodosCustos()" style="width:85px"></td><td id="encargosEstag">720</td><td><input type="number" id="beneficiosEstag" value="400" step="50" onchange="atualizarTodosCustos()" style="width:70px"></td><td id="totalMensalEstag">2120</td><td id="horasEstag">140</td><td id="overheadHoraEstag">0</td><td id="custoHoraEstag">68.71</td></tr>
+                            <tr><td>Júnior</td><td><input type="number" id="salarioJr" value="3500" step="100" onchange="atualizarTodosCustos()" style="width:85px"></td><td id="encargosJr">2520</td><td><input type="number" id="beneficiosJr" value="600" step="50" onchange="atualizarTodosCustos()" style="width:70px"></td><td id="totalMensalJr">6620</td><td id="horasJr">140</td><td id="overheadHoraJr">0</td><td id="custoHoraJr">100.86</td></tr>
+                            <tr><td>Pleno</td><td><input type="number" id="salarioPl" value="6500" step="100" onchange="atualizarTodosCustos()" style="width:85px"></td><td id="encargosPl">4680</td><td><input type="number" id="beneficiosPl" value="800" step="50" onchange="atualizarTodosCustos()" style="width:70px"></td><td id="totalMensalPl">11980</td><td id="horasPl">140</td><td id="overheadHoraPl">0</td><td id="custoHoraPl">139.14</td></tr>
+                            <tr><td>Sênior</td><td><input type="number" id="salarioSr" value="10000" step="100" onchange="atualizarTodosCustos()" style="width:85px"></td><td id="encargosSr">7200</td><td><input type="number" id="beneficiosSr" value="1000" step="50" onchange="atualizarTodosCustos()" style="width:70px"></td><td id="totalMensalSr">18200</td><td id="horasSr">120</td><td id="overheadHoraSr">0</td><td id="custoHoraSr">183.57</td></tr>
+                            <tr><td>Coordenador</td><td><input type="number" id="salarioCoord" value="14000" step="100" onchange="atualizarTodosCustos()" style="width:85px"></td><td id="encargosCoord">10080</td><td><input type="number" id="beneficiosCoord" value="1200" step="50" onchange="atualizarTodosCustos()" style="width:70px"></td><td id="totalMensalCoord">25280</td><td id="horasCoord">100</td><td id="overheadHoraCoord">0</td><td id="custoHoraCoord">234.14</td></tr>
+                            <tr><td>Sócio</td><td><input type="number" id="salarioSocio" value="20000" step="100" onchange="atualizarTodosCustos()" style="width:85px"></td><td id="encargosSocio">14400</td><td><input type="number" id="beneficiosSocio" value="1500" step="50" onchange="atualizarTodosCustos()" style="width:70px"></td><td id="totalMensalSocio">35900</td><td id="horasSocio">80</td><td id="overheadHoraSocio">0</td><td id="custoHoraSocio">310.00</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>2) Margens-alvo</h3>
+                        <table>
+                            <tr><td>Hora</td><td><input type="number" id="margemHora" value="55" min="30" max="80" step="1">%</td></tr>
+                            <tr><td>Preço fechado</td><td><input type="number" id="margemFechado" value="47" min="30" max="80" step="1">%</td></tr>
+                            <tr><td>Retainer</td><td><input type="number" id="margemRetainer" value="52" min="30" max="80" step="1">%</td></tr>
+                            <tr><td>Êxito</td><td><input type="number" id="margemExito" value="65" min="40" max="90" step="1">%</td></tr>
+                            <tr><td>Híbrido</td><td><input type="number" id="margemHibrido" value="50" min="30" max="80" step="1">%</td></tr>
+                        </table>
+                    </div>
+                    <div class="card">
+                        <h3>3) Impostos</h3>
+                        <div class="form-group"><label>Regime</label><select id="regimeTributario"><option value="lucro_presumido">Lucro Presumido</option><option value="lucro_real">Lucro Real</option><option value="simples">Simples Nacional</option></select></div>
+                        <div class="form-group"><label>% Impostos</label><input type="number" id="impostos" value="11.33" step="0.01"></div>
+                        <div class="form-group"><label>Taxa parcelamento</label><input type="number" id="taxaParcelamento" value="1" step="0.1">%</div>
+                    </div>
+                </div>
+                
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>4) CS</h3>
+                        <div class="form-group"><label>% CS padrão</label><input type="number" id="csPadrao" value="7.5" step="0.1">%</div>
+                        <div class="form-group"><label>Base CS</label><select id="baseCS"><option value="liquido">Sobre líquido</option><option value="bruto">Sobre bruto</option></select></div>
+                    </div>
+                    <div class="card">
+                        <h3>5) Buffers</h3>
+                        <div class="grid-2">
+                            <div><label>Baixa</label><input type="number" id="bufferBaixa" value="10" step="1">%</div>
+                            <div><label>Média</label><input type="number" id="bufferMedia" value="20" step="1">%</div>
+                            <div><label>Alta</label><input type="number" id="bufferAlta" value="30" step="1">%</div>
+                            <div><label>Urgente</label><input type="number" id="bufferUrgencia" value="20" step="1">%</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3>Overhead</h3>
+                    <div class="grid-2">
+                        <div class="form-group"><label>Overhead total (R$)</label><input type="number" id="overheadTotal" value="45000" step="1000" onchange="atualizarTodosCustos()"></div>
+                        <div class="form-group"><label>Total horas/mês</label><input type="number" id="horasTotais" value="720" step="10" onchange="atualizarTodosCustos()"></div>
+                    </div>
+                    <div class="info-text">Overhead/h: R$ <span id="overheadPorHora">62.50</span></div>
+                </div>
+                
+                <div class="button-group mt-4">
+                    <button type="button" class="btn btn-success" onclick="salvarConfiguracoesFirebase()">💾 Salvar</button>
+                    <button type="button" class="btn btn-secondary" onclick="carregarConfiguracoesFirebase()">🔄 Recarregar</button>
+                </div>
+            </div>
+
+            <!-- ABA 3 - CÁLCULO -->
+            <div id="calculo" class="tab-content">
+                <h2>🔬 Memória de Cálculo</h2>
+                <div class="table-responsive">
+                    <table>
+                        <thead><tr><th>Perfil</th><th>Horas</th><th>Custo/h</th><th>Subtotal</th><th>Buffer</th><th>Total c/ buffer</th></tr></thead>
+                        <tbody id="corpo-calculo"></tbody>
+                        <tfoot>
+                            <tr><td colspan="5"><strong>Total MO</strong></td><td id="total-mao-obra">R$ 0,00</td></tr>
+                            <tr><td colspan="5"><strong>Overhead</strong></td><td id="total-overhead">R$ 0,00</td></tr>
+                            <tr><td colspan="5"><strong>Subtotal</strong></td><td id="subtotal-geral">R$ 0,00</td></tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <div class="card mt-4">
+                    <h3>Composição do Preço</h3>
+                    <table>
+                        <tr><td>Custo MO + Overhead</td><td id="composicao-custo">R$ 0,00</td></tr>
+                        <tr><td>Buffer (risco escopo)</td><td id="composicao-buffer">R$ 0,00</td></tr>
+                        <tr><td>Impostos</td><td id="composicao-impostos">R$ 0,00</td></tr>
+                        <tr><td>CS (sobre líquido)</td><td id="composicao-cs">R$ 0,00</td></tr>
+                        <tr><td>Parceiro</td><td id="composicao-parceiro">R$ 0,00</td></tr>
+                        <tr><td><strong>Base de Cálculo</strong></td><td id="composicao-base">R$ 0,00</td></tr>
+                        <tr><td>Margem Alvo</td><td id="composicao-margem">R$ 0,00</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ABA 4 - OUTPUT -->
+            <div id="output" class="tab-content">
+                <h2>📊 Resultado</h2>
+                <div class="price-grid">
+                    <div class="price-box piso"><h4>PREÇO PISO</h4><div class="price" id="preco-piso">R$ 0,00</div><small>Não vender abaixo</small></div>
+                    <div class="price-box alvo"><h4>PREÇO ALVO</h4><div class="price" id="preco-alvo">R$ 0,00</div><small>Recomendado</small></div>
+                    <div class="price-box premium"><h4>PREÇO PREMIUM</h4><div class="price" id="preco-premium">R$ 0,00</div><small>+Urgência/Risco</small></div>
+                </div>
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>Detalhamento</h3>
+                        <table>
+                            <tr><td>Custo total</td><td id="output-custo">R$ 0,00</td></tr>
+                            <tr><td>Impostos</td><td id="output-impostos">R$ 0,00</td></tr>
+                            <tr><td>CS</td><td id="output-cs">R$ 0,00</td></tr>
+                            <tr><td>Margem (R$)</td><td id="output-margem-valor">R$ 0,00</td></tr>
+                            <tr><td>Margem (%)</td><td id="output-margem-pct">0%</td></tr>
+                        </table>
+                    </div>
+                    <div class="card">
+                        <h3>Parcelamento</h3>
+                        <table>
+                            <tr><td>Entrada</td><td id="output-entrada">R$ 0,00</td></tr>
+                            <tr><td>Parcelas</td><td id="output-parcelas">1x R$ 0,00</td></tr>
+                            <tr><td>Total c/ juros</td><td id="output-total-juros">R$ 0,00</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>⚠️ Alertas</h3>
+                    <div id="alertas-container"></div>
+                </div>
+                <div class="button-group">
+                    <button type="button" class="btn btn-success" onclick="salvarHistorico()">💾 Salvar</button>
+                </div>
+            </div>
+
+            <!-- ABA 5 - HISTÓRICO -->
+            <div id="historico" class="tab-content">
+                <h2>📚 Histórico</h2>
+                <div class="card">
+                    <div class="grid-2">
+                        <div class="form-group"><label>Filtrar</label><input type="text" id="filtroCliente" placeholder="Cliente"></div>
+                        <div class="form-group"><label>Ordenar</label><select id="ordenarPor"><option value="data">Data</option><option value="cliente">Cliente</option><option value="preco">Preço</option><option value="margem">Margem</option></select></div>
+                    </div>
+                    <div id="historico-lista"></div>
+                    <div class="button-group">
+                        <button type="button" class="btn btn-success" onclick="exportarExcel()">📊 Excel</button>
+                        <button type="button" class="btn btn-danger" onclick="exportarPDF()">📑 PDF</button>
+                    </div>
+                    <div style="margin-top:10px;text-align:center"><small>Total: <span id="total-simulacoes">0</span></small></div>
+                </div>
+            </div>
+
+            <!-- ABA 6 - DASHBOARD -->
+            <div id="dashboard" class="tab-content">
+                <h2>📈 Dashboard</h2>
+                <div class="kpi-grid">
+                    <div class="kpi-card"><div class="kpi-label">Total</div><div class="kpi-value" id="kpi-total-simulacoes">0</div></div>
+                    <div class="kpi-card"><div class="kpi-label">Ticket Médio</div><div class="kpi-value" id="kpi-ticket-medio">R$ 0</div></div>
+                    <div class="kpi-card"><div class="kpi-label">Margem Média</div><div class="kpi-value" id="kpi-margem-media">0%</div></div>
+                    <div class="kpi-card"><div class="kpi-label">Risco Alto</div><div class="kpi-value" id="kpi-risco-alto">0</div></div>
+                </div>
+                <div class="chart-controls">
+                    <button class="chart-btn active" onclick="mudarPeriodoGraficos('7d',event)">7d</button>
+                    <button class="chart-btn" onclick="mudarPeriodoGraficos('30d',event)">30d</button>
+                    <button class="chart-btn" onclick="mudarPeriodoGraficos('90d',event)">90d</button>
+                    <button class="chart-btn" onclick="mudarPeriodoGraficos('all',event)">Todos</button>
+                </div>
+                <div class="dashboard-grid">
+                    <div class="chart-card"><div class="chart-header"><h3>📊 Evolução</h3><span id="periodo-preco">30d</span></div><div class="chart-container"><canvas id="graficoPrecos"></canvas></div></div>
+                    <div class="chart-card"><div class="chart-header"><h3>🥧 Segmentos</h3></div><div class="chart-container"><canvas id="graficoSegmentos"></canvas></div><div id="legenda-segmentos"></div></div>
+                    <div class="chart-card"><div class="chart-header"><h3>📊 Margens</h3></div><div class="chart-container"><canvas id="graficoMargens"></canvas></div></div>
+                    <div class="chart-card"><div class="chart-header"><h3>⚠️ Risco</h3></div><div class="chart-container"><canvas id="graficoRisco"></canvas></div><div id="legenda-risco"></div></div>
+                    <div class="chart-card"><div class="chart-header"><h3>🏆 Top Clientes</h3></div><div class="chart-container"><canvas id="graficoTopClientes"></canvas></div></div>
+                    <div class="chart-card"><div class="chart-header"><h3>📈 Tendência</h3><span id="periodo-margem">30d</span></div><div class="chart-container"><canvas id="graficoTendenciaMargens"></canvas></div></div>
+                </div>
+            </div>
+
+            <!-- ABA 7 - CONFIGURAÇÕES -->
+            <div id="configuracoes" class="tab-content">
+                <h2>⚙️ Configurações</h2>
+                <div class="card">
+                    <h3>🔥 Firebase</h3>
+                    <div id="firebase-status" class="info-text"></div>
+                    <div class="button-group">
+                        <button type="button" class="btn btn-primary" onclick="testarConexaoFirebase()">🔄 Testar</button>
+                        <button type="button" class="btn btn-success" onclick="backupDadosFirebase()">💾 Backup</button>
+                    </div>
+                </div>
+                <div class="card mt-4">
+                    <h3>👥 Usuários</h3>
+                    <div class="grid-2">
+                        <div class="form-group"><label>Email</label><input type="email" id="novoUsuarioEmail"></div>
+                        <div class="form-group"><label>Senha</label><input type="password" id="novoUsuarioSenha"></div>
+                    </div>
+                    <div class="grid-2">
+                        <div class="form-group"><label>Nome</label><input type="text" id="novoUsuarioNome"></div>
+                        <div class="form-group"><label>Perfil</label><select id="novoUsuarioPerfil"><option>Usuário</option><option>Admin</option><option>Master</option></select></div>
+                    </div>
+                    <button type="button" class="btn btn-success" onclick="adicionarUsuarioFirebase()">➕ Adicionar</button>
+                    <div id="lista-usuarios" style="margin-top:20px"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Modal de Edição -->
+        <div id="modalEdicao" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Opções</h3>
+                    <button class="modal-close" onclick="fecharModal()">&times;</button>
+                </div>
+                <div class="modal-body" id="modal-conteudo"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
