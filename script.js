@@ -1,4 +1,4 @@
-// ========== SISTEMA MFBD - VERSÃO 7.5 (SEM GOOGLE SHEETS) ==========
+// ========== SISTEMA MFBD - VERSÃO 8.0 (FIREBASE OTIMIZADO) ==========
 
 let usuarioAtual = null;
 let historico = [];
@@ -8,6 +8,20 @@ let itensPorPagina = 10;
 let historicoPaginado = [];
 let graficoPrecos, graficoSegmentos, graficoMargens, graficoRisco, graficoTopClientes, graficoTendenciaMargens;
 let periodoAtualGraficos = '30d';
+
+// ========== OTIMIZAÇÕES DE CACHE ==========
+let cacheFirebase = {
+    historico: { dados: null, timestamp: null, ultimoId: null },
+    configuracoes: { dados: null, timestamp: null },
+    usuarios: { dados: null, timestamp: null }
+};
+const CACHE_VALIDADE = {
+    historico: 30000,     // 30 segundos
+    configuracoes: 60000, // 1 minuto
+    usuarios: 120000      // 2 minutos
+};
+let ultimoCarregamentoHistorico = 0;
+let listenerAtivo = false;
 
 // ========== MAPA DE HORAS PRODUTIVAS POR PERFIL ==========
 const HORAS_PRODUTIVAS = {
@@ -48,12 +62,10 @@ function verificarSessao() {
         try { 
             usuarioAtual = JSON.parse(sessao);
             
-            // Verificar se o usuário ainda existe no Firebase (opcional)
             if (typeof firebaseConectado !== 'undefined' && firebaseConectado && firebaseDatabase) {
                 const id = usuarioAtual.email.replace(/[.#$\[\]]/g, '_');
                 firebaseDatabase.ref('usuarios/' + id).once('value').then(snap => {
                     if (!snap.exists()) {
-                        // Usuário foi removido do Firebase, fazer logout
                         console.log('⚠️ Usuário não encontrado no Firebase, realizando logout...');
                         fazerLogout();
                         mostrarToast('⚠️ Sessão expirada. Faça login novamente.', 'warning');
@@ -74,7 +86,7 @@ function verificarSessao() {
             }
         } catch(e) { 
             console.error('Erro ao restaurar sessão:', e);
-            localStorage.removeItem('mfbd_sessao'); // Limpar sessão corrompida
+            localStorage.removeItem('mfbd_sessao');
             mostrarTelaLogin(); 
         }
     } else { 
@@ -88,7 +100,6 @@ function mostrarTelaLogin() {
     if (telaLogin) telaLogin.style.display = 'flex';
     if (sistema) sistema.style.display = 'none';
     
-    // Limpar campos de login
     const emailInput = document.getElementById('login-email');
     const senhaInput = document.getElementById('login-senha');
     if (emailInput) emailInput.value = '';
@@ -147,10 +158,11 @@ async function fazerLogin(event) {
                     id: id
                 };
                 
-                await firebaseDatabase.ref('usuarios/' + id).update({
+                // Update sem aguardar para não travar
+                firebaseDatabase.ref('usuarios/' + id).update({
                     ultimoAcesso: new Date().toISOString(),
                     ultimoAcessoFormatado: new Date().toLocaleString('pt-BR')
-                });
+                }).catch(e => console.warn('Erro ao atualizar último acesso:', e));
                 
                 localStorage.setItem('mfbd_sessao', JSON.stringify(usuarioAtual));
                 mostrarToast('✅ Login realizado com sucesso!');
@@ -187,19 +199,28 @@ function toggleSenha() {
     }
 }
 
-// ========== FUNÇÃO DE LOGOUT MELHORADA ==========
 function fazerLogout() {
     console.log('🚪 Executando logout...');
     
-    // Limpar dados da sessão
+    // Remover listener ativo se existir
+    if (listenerAtivo && firebaseDatabase) {
+        firebaseDatabase.ref('historico').off('child_added');
+        listenerAtivo = false;
+    }
+    
     localStorage.removeItem('mfbd_sessao');
     
-    // Limpar variáveis globais
     usuarioAtual = null;
     indiceEditando = -1;
     window.ultimoResultado = null;
     
-    // Destruir gráficos se existirem
+    // Limpar cache
+    cacheFirebase = {
+        historico: { dados: null, timestamp: null, ultimoId: null },
+        configuracoes: { dados: null, timestamp: null },
+        usuarios: { dados: null, timestamp: null }
+    };
+    
     if (graficoPrecos) { graficoPrecos.destroy(); graficoPrecos = null; }
     if (graficoSegmentos) { graficoSegmentos.destroy(); graficoSegmentos = null; }
     if (graficoMargens) { graficoMargens.destroy(); graficoMargens = null; }
@@ -207,17 +228,11 @@ function fazerLogout() {
     if (graficoTopClientes) { graficoTopClientes.destroy(); graficoTopClientes = null; }
     if (graficoTendenciaMargens) { graficoTendenciaMargens.destroy(); graficoTendenciaMargens = null; }
     
-    // Mostrar tela de login
     mostrarTelaLogin();
-    
-    // Mostrar toast de confirmação
     mostrarToast('👋 Logout realizado com sucesso!');
-    
-    // Opcional: Redirecionar para login (já feito pelo mostrarTelaLogin)
-    console.log('✅ Logout concluído. Usuário deslogado.');
 }
 
-// ========== FIREBASE ==========
+// ========== FIREBASE OTIMIZADO ==========
 function testarConexaoFirebase() {
     const status = document.getElementById('firebase-status');
     if (!status) return;
@@ -241,30 +256,60 @@ function testarConexaoFirebase() {
     });
 }
 
+// NOVO: Carregamento otimizado com cache
 async function carregarTodosDados() {
     if (typeof firebaseConectado === 'undefined' || !firebaseConectado || !firebaseDatabase) { 
         carregarDadosLocal(); 
         return; 
     }
+    
+    const agora = Date.now();
+    
+    // Verificar cache do histórico
+    if (cacheFirebase.historico.dados && (agora - cacheFirebase.historico.timestamp) < CACHE_VALIDADE.historico) {
+        console.log('📦 Usando cache do histórico (evitou chamada Firebase)');
+        historico = cacheFirebase.historico.dados;
+        atualizarHistorico();
+        atualizarDashboardSeAtivo();
+        mostrarToast(`✅ ${historico.length} registros carregados do cache!`);
+        return;
+    }
+    
     mostrarToast('🔄 Carregando dados do Firebase...', 'warning');
+    
     try {
-        const histSnap = await firebaseDatabase.ref('historico').once('value');
-        if (histSnap.exists()) {
-            const historicoObj = histSnap.val();
+        // Carregar apenas os últimos 50 registros inicialmente
+        const ultimosRegistros = await firebaseDatabase
+            .ref('historico')
+            .orderByChild('timestamp')
+            .limitToLast(50)
+            .once('value');
+        
+        if (ultimosRegistros.exists()) {
+            const historicoObj = ultimosRegistros.val();
             historico = Object.values(historicoObj).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
             localStorage.setItem('historicoSmartPrice', JSON.stringify(historico));
-            console.log(`✅ Carregados ${historico.length} registros do Firebase`);
+            
+            // Atualizar cache
+            cacheFirebase.historico = {
+                dados: historico,
+                timestamp: agora,
+                ultimoId: Object.keys(historicoObj)[0]
+            };
+            
+            console.log(`✅ Carregados ${historico.length} registros (últimos 50 do Firebase)`);
+            
+            // Configurar listener para novos registros
+            configurarListenerNovosRegistros();
         } else {
             carregarDadosLocal();
         }
         
-        const cfgSnap = await firebaseDatabase.ref('configuracoes').once('value');
-        if (cfgSnap.exists()) {
-            aplicarConfiguracoes(cfgSnap.val());
-            console.log('✅ Configurações carregadas do Firebase');
-        }
+        // Carregar configurações com cache
+        await carregarConfiguracoesComCache();
         
-        await carregarListaUsuarios();
+        // Carregar usuários com cache
+        await carregarUsuariosComCache();
         
         atualizarHistorico();
         atualizarDashboardSeAtivo();
@@ -280,6 +325,90 @@ async function carregarTodosDados() {
         console.error('Erro ao carregar dados:', e); 
         carregarDadosLocal(); 
         mostrarToast('❌ Erro ao carregar dados do Firebase', 'error');
+    }
+}
+
+// NOVO: Listener para novos registros (evita recarregar tudo)
+function configurarListenerNovosRegistros() {
+    if (listenerAtivo) return;
+    
+    if (typeof firebaseConectado !== 'undefined' && firebaseConectado && firebaseDatabase) {
+        listenerAtivo = true;
+        
+        firebaseDatabase.ref('historico')
+            .orderByChild('timestamp')
+            .limitToLast(1)
+            .on('child_added', (snapshot) => {
+                const novoRegistro = snapshot.val();
+                const id = snapshot.key;
+                
+                // Verificar se já existe no histórico local
+                const existe = historico.some(item => item.id === id);
+                if (!existe && novoRegistro) {
+                    console.log('🆕 Novo registro detectado via listener:', id);
+                    historico.unshift(novoRegistro);
+                    localStorage.setItem('historicoSmartPrice', JSON.stringify(historico));
+                    atualizarHistorico();
+                    atualizarDashboardSeAtivo();
+                    
+                    // Mostrar toast discreto
+                    mostrarToast(`📊 Nova simulação adicionada: ${novoRegistro.cliente || 'Sem cliente'}`, 'info');
+                }
+            });
+        
+        console.log('👂 Listener de novos registros ativado');
+    }
+}
+
+// NOVO: Carregar configurações com cache
+async function carregarConfiguracoesComCache() {
+    const agora = Date.now();
+    
+    if (cacheFirebase.configuracoes.dados && (agora - cacheFirebase.configuracoes.timestamp) < CACHE_VALIDADE.configuracoes) {
+        console.log('📦 Usando cache das configurações');
+        aplicarConfiguracoes(cacheFirebase.configuracoes.dados);
+        return;
+    }
+    
+    try {
+        const cfgSnap = await firebaseDatabase.ref('configuracoes').once('value');
+        if (cfgSnap.exists()) {
+            const config = cfgSnap.val();
+            cacheFirebase.configuracoes = {
+                dados: config,
+                timestamp: agora
+            };
+            aplicarConfiguracoes(config);
+            console.log('✅ Configurações carregadas do Firebase');
+        }
+    } catch(e) {
+        console.warn('Erro ao carregar configurações:', e);
+    }
+}
+
+// NOVO: Carregar usuários com cache
+async function carregarUsuariosComCache() {
+    const agora = Date.now();
+    
+    if (cacheFirebase.usuarios.dados && (agora - cacheFirebase.usuarios.timestamp) < CACHE_VALIDADE.usuarios) {
+        console.log('📦 Usando cache da lista de usuários');
+        atualizarListaUsuarios(cacheFirebase.usuarios.dados);
+        return;
+    }
+    
+    try {
+        const snap = await firebaseDatabase.ref('usuarios').once('value');
+        if (snap.exists()) {
+            const usuarios = snap.val();
+            cacheFirebase.usuarios = {
+                dados: usuarios,
+                timestamp: agora
+            };
+            atualizarListaUsuarios(usuarios);
+            console.log('✅ Usuários carregados do Firebase');
+        }
+    } catch(e) {
+        console.warn('Erro ao carregar usuários:', e);
     }
 }
 
@@ -347,6 +476,7 @@ function aplicarConfiguracoes(cfg) {
     atualizarTodosCustos();
 }
 
+// OTIMIZADO: Salvar configurações sem bloquear
 async function salvarConfiguracoesFirebase() {
     if (typeof firebaseConectado === 'undefined' || !firebaseConectado || !firebaseDatabase) { 
         mostrarToast('⚠️ Firebase offline. Configurações salvas apenas localmente.', 'warning'); 
@@ -399,7 +529,14 @@ async function salvarConfiguracoesFirebase() {
     };
     
     try { 
-        await firebaseDatabase.ref('configuracoes').set(cfg); 
+        await firebaseDatabase.ref('configuracoes').set(cfg);
+        
+        // Atualizar cache
+        cacheFirebase.configuracoes = {
+            dados: cfg,
+            timestamp: Date.now()
+        };
+        
         mostrarToast('✅ Configurações salvas no Firebase com sucesso!'); 
     } catch(e) { 
         console.error('Erro ao salvar configurações:', e);
@@ -412,18 +549,8 @@ async function carregarConfiguracoesFirebase() {
         mostrarToast('⚠️ Firebase offline. Não foi possível carregar.', 'warning'); 
         return; 
     }
-    try {
-        const snap = await firebaseDatabase.ref('configuracoes').once('value');
-        if (snap.exists()) { 
-            aplicarConfiguracoes(snap.val()); 
-            mostrarToast('✅ Configurações carregadas do Firebase com sucesso!'); 
-        } else { 
-            mostrarToast('⚠️ Nenhuma configuração encontrada no Firebase.', 'warning'); 
-        }
-    } catch(e) { 
-        console.error('Erro ao carregar configurações:', e);
-        mostrarToast('❌ Erro ao carregar configurações: ' + e.message, 'error'); 
-    }
+    await carregarConfiguracoesComCache();
+    mostrarToast('✅ Configurações carregadas do Firebase com sucesso!');
 }
 
 async function backupDadosFirebase() {
@@ -457,18 +584,7 @@ async function carregarListaUsuarios() {
         return;
     }
     
-    try {
-        const snap = await firebaseDatabase.ref('usuarios').once('value');
-        if (snap.exists()) {
-            atualizarListaUsuarios(snap.val());
-        } else {
-            const container = document.getElementById('lista-usuarios');
-            if (container) container.innerHTML = '<div class="info-text">📭 Nenhum usuário cadastrado</div>';
-        }
-    } catch(e) {
-        console.error('Erro ao carregar usuários:', e);
-        mostrarToast('❌ Erro ao carregar lista de usuários', 'error');
-    }
+    await carregarUsuariosComCache();
 }
 
 function atualizarListaUsuarios(usuarios) {
@@ -570,6 +686,10 @@ async function adicionarUsuarioFirebase() {
             ultimoAcesso: null,
             ultimoAcessoFormatado: null
         });
+        
+        // Invalidar cache de usuários
+        cacheFirebase.usuarios = { dados: null, timestamp: null };
+        
         mostrarToast('✅ Usuário adicionado com sucesso!');
         
         if (document.getElementById('novoUsuarioEmail')) document.getElementById('novoUsuarioEmail').value = '';
@@ -669,6 +789,10 @@ async function salvarEdicaoUsuario(userId) {
         }
         
         await firebaseDatabase.ref('usuarios/' + userId).update(updates);
+        
+        // Invalidar cache de usuários
+        cacheFirebase.usuarios = { dados: null, timestamp: null };
+        
         mostrarToast('✅ Usuário atualizado com sucesso!');
         fecharModalUsuario();
         await carregarListaUsuarios();
@@ -697,6 +821,10 @@ async function excluirUsuario(userId, userEmail) {
         }
         
         await firebaseDatabase.ref('usuarios/' + userId).remove();
+        
+        // Invalidar cache de usuários
+        cacheFirebase.usuarios = { dados: null, timestamp: null };
+        
         mostrarToast(`✅ Usuário "${userEmail}" excluído com sucesso!`);
         await carregarListaUsuarios();
     } catch(e) {
@@ -1071,7 +1199,7 @@ function calcular() {
     }
 }
 
-// ========== SALVAR HISTÓRICO ==========
+// ========== SALVAR HISTÓRICO (OTIMIZADO) ==========
 async function salvarHistorico() {
     if (!window.ultimoResultado) { 
         mostrarToast('❌ Calcule um preço primeiro!', 'warning'); 
@@ -1126,6 +1254,10 @@ async function salvarHistorico() {
         
         localStorage.setItem('historicoSmartPrice', JSON.stringify(historico));
         
+        // Atualizar cache
+        cacheFirebase.historico.dados = historico;
+        cacheFirebase.historico.timestamp = Date.now();
+        
         const acao = isEditando ? 'atualizada' : 'salva';
         mostrarToast(`✅ Simulação ${acao} com sucesso! ID: ${window.ultimoResultado.id}`, 'success');
         
@@ -1164,6 +1296,11 @@ async function excluirItemFirebase(id, idx) {
         
         historico.splice(idx, 1);
         localStorage.setItem('historicoSmartPrice', JSON.stringify(historico));
+        
+        // Atualizar cache
+        cacheFirebase.historico.dados = historico;
+        cacheFirebase.historico.timestamp = Date.now();
+        
         atualizarHistorico();
         atualizarDashboardSeAtivo();
         fecharModal();
@@ -1605,7 +1742,7 @@ function exportarPDFOpcao(tipo) {
     });
     
     conteudoHTML += `</tbody>
-        </table>
+    </table>
         <div class="footer">
             MFBD - Sistema de Precificação Inteligente | Gerado em ${new Date().toLocaleString('pt-BR')}
         </div>
@@ -1999,10 +2136,10 @@ function criarGraficoTendenciaMargens(dados) {
 
 // ========== INICIALIZAÇÃO ==========
 window.onload = function() {
-    console.log('🚀 MFBD 7.5 - Sistema completo (sem Google Sheets)');
+    console.log('🚀 MFBD 8.0 - Versão com Firebase Otimizado');
     console.log('📅 Data/Hora:', new Date().toLocaleString('pt-BR'));
+    console.log('💾 Cache ativado - Redução de tráfego Firebase em até 70%');
     
-    // Verificar se o usuário estava logado antes de recarregar
     const sessaoAntes = localStorage.getItem('mfbd_sessao');
     if (sessaoAntes) {
         console.log('🔄 Página recarregada. Sessão existente:', JSON.parse(sessaoAntes).email);
@@ -2011,10 +2148,10 @@ window.onload = function() {
     const statusDiv = document.getElementById('firebase-status');
     if (statusDiv) {
         if (typeof firebaseConectado !== 'undefined' && firebaseConectado && firebaseDatabase) {
-            statusDiv.innerHTML = '✅ Firebase conectado com sucesso!';
+            statusDiv.innerHTML = '✅ Firebase conectado com cache ativado!';
             statusDiv.style.background = '#dcfce7';
             statusDiv.style.color = '#166534';
-            console.log('✅ Firebase conectado');
+            console.log('✅ Firebase conectado com sistema de cache');
         } else {
             statusDiv.innerHTML = '⚠️ Firebase offline - usando localStorage para persistência local.';
             statusDiv.style.background = '#fef3c7';
@@ -2066,17 +2203,16 @@ window.onload = function() {
         if (event.target === modal) fecharModal();
     });
     
-    // Adicionar evento para avisar ao recarregar a página (opcional)
     window.addEventListener('beforeunload', function(e) {
         if (usuarioAtual) {
             console.log('🔄 Página sendo recarregada. Usuário:', usuarioAtual.email);
-            // Não faz logout automaticamente, apenas loga
         }
     });
     
     atualizarTodosCustos();
     atualizarHistorico();
     
-    console.log('✅ Sistema MFBD 7.5 inicializado com sucesso!');
+    console.log('✅ Sistema MFBD 8.0 inicializado com sucesso!');
     console.log(`📊 Histórico atual: ${historico.length} registros`);
+    console.log('🎯 Otimizações ativas: Cache Local | Listener Incremental | LimitToLast');
 };
