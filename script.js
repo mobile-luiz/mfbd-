@@ -1,4 +1,4 @@
-// ========== SISTEMA MFBD - VERSÃO 8.6 (LIMPEZA TOTAL APÓS SALVAR/EDITAR) ==========
+// ========== SISTEMA MFBD - VERSÃO 8.0 (FIREBASE OTIMIZADO) ==========
 
 let usuarioAtual = null;
 let historico = [];
@@ -8,119 +8,6 @@ let itensPorPagina = 10;
 let historicoPaginado = [];
 let graficoPrecos, graficoSegmentos, graficoMargens, graficoRisco, graficoTopClientes, graficoTendenciaMargens;
 let periodoAtualGraficos = '30d';
-let listenerAtivo = false;
-let listenerConfigurado = false;
-let validacaoSessaoEmAndamento = false;
-
-// Flag para detectar se é um reload/refresh da página
-let isPageReload = false;
-
-// Detectar se a página está sendo recarregada
-window.addEventListener('beforeunload', function() {
-    isPageReload = true;
-});
-
-// ========== PROTEÇÃO DE ROTA ==========
-// Função para verificar autenticação antes de qualquer ação
-function isAuthenticated() {
-    const sessao = localStorage.getItem('mfbd_sessao');
-    if (!sessao) return false;
-    
-    try {
-        const usuario = JSON.parse(sessao);
-        if (usuario && usuario.email) {
-            return true;
-        }
-    } catch(e) {
-        return false;
-    }
-    return false;
-}
-
-// Função para forçar logout e redirecionar (mantém a sessão? NÃO - limpa tudo)
-function forceLogoutAndRedirect(motivo = 'atualizacao') {
-    console.log(`🔒 Forçando logout e redirecionando para login. Motivo: ${motivo}`);
-    
-    // Limpar todos os dados da sessão
-    localStorage.removeItem('mfbd_sessao');
-    localStorage.removeItem('historicoSmartPrice');
-    
-    // Limpar qualquer outro dado de sessão
-    sessionStorage.clear();
-    
-    // Limpar cache
-    cacheFirebase = {
-        historico: { dados: null, timestamp: null, ultimoId: null },
-        configuracoes: { dados: null, timestamp: null },
-        usuarios: { dados: null, timestamp: null }
-    };
-    
-    usuarioAtual = null;
-    indiceEditando = -1;
-    window.ultimoResultado = null;
-    historico = [];
-    
-    // Remover listeners do Firebase
-    if (firebaseDatabase) {
-        try {
-            firebaseDatabase.ref('historico').off();
-            firebaseDatabase.ref('historico').off('child_added');
-            firebaseDatabase.ref('historico').off('child_changed');
-            firebaseDatabase.ref('historico').off('child_removed');
-        } catch(e) { console.warn('Erro ao remover listeners:', e); }
-    }
-    listenerAtivo = false;
-    listenerConfigurado = false;
-    
-    // Destruir gráficos
-    destruirGraficos();
-    
-    // Mostrar tela de login
-    mostrarTelaLogin();
-    
-    // Limpar URL se tiver hash/params
-    if (window.location.hash || window.location.search) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-    }
-    
-    console.log('🚪 Sessão encerrada. Redirecionado para login.');
-}
-
-// Função que SIMULA logout ao carregar a página
-function logoutAoAtualizarPagina() {
-    console.log('🔄 Detectado carregamento/atualização da página - Forçando logout');
-    
-    // Limpar sessão
-    localStorage.removeItem('mfbd_sessao');
-    localStorage.removeItem('historicoSmartPrice');
-    sessionStorage.clear();
-    
-    // Limpar variáveis globais
-    usuarioAtual = null;
-    indiceEditando = -1;
-    window.ultimoResultado = null;
-    historico = [];
-    
-    // Limpar cache
-    cacheFirebase = {
-        historico: { dados: null, timestamp: null, ultimoId: null },
-        configuracoes: { dados: null, timestamp: null },
-        usuarios: { dados: null, timestamp: null }
-    };
-    
-    // Remover listeners
-    if (firebaseDatabase) {
-        try {
-            firebaseDatabase.ref('historico').off();
-        } catch(e) {}
-    }
-    listenerConfigurado = false;
-    
-    // Mostrar tela de login
-    mostrarTelaLogin();
-    
-    console.log('✅ Logout forçado após atualização da página');
-}
 
 // ========== OTIMIZAÇÕES DE CACHE ==========
 let cacheFirebase = {
@@ -129,10 +16,12 @@ let cacheFirebase = {
     usuarios: { dados: null, timestamp: null }
 };
 const CACHE_VALIDADE = {
-    historico: 30000,
-    configuracoes: 60000,
-    usuarios: 120000
+    historico: 30000,     // 30 segundos
+    configuracoes: 60000, // 1 minuto
+    usuarios: 120000      // 2 minutos
 };
+let ultimoCarregamentoHistorico = 0;
+let listenerAtivo = false;
 
 // ========== MAPA DE HORAS PRODUTIVAS POR PERFIL ==========
 const HORAS_PRODUTIVAS = {
@@ -156,238 +45,78 @@ function formatarPercentual(valor) {
 }
 
 function mostrarToast(msg, tipo = 'success') {
-    const toastsAntigos = document.querySelectorAll('.toast');
-    toastsAntigos.forEach(t => t.remove());
-    
     const toast = document.createElement('div');
     toast.className = `toast ${tipo}`;
     toast.innerHTML = `<span>${tipo === 'success' ? '✅' : tipo === 'error' ? '❌' : '⚠️'}</span><span>${msg}</span>`;
     document.body.appendChild(toast);
     setTimeout(() => { 
-        toast.style.animation = 'slideOutRight 0.3s'; 
+        toast.style.animation = 'slideIn 0.3s reverse'; 
         setTimeout(() => toast.remove(), 300); 
     }, 3000);
 }
 
-// ========== LIMPAR OUTPUTS DE CÁLCULO ==========
-function limparOutputsCalculo() {
-    console.log('🧹 Limpando outputs de cálculo...');
-    
-    // Limpar preços
-    const precoPiso = document.getElementById('preco-piso');
-    const precoAlvo = document.getElementById('preco-alvo');
-    const precoPremium = document.getElementById('preco-premium');
-    
-    if (precoPiso) precoPiso.innerHTML = 'R$ 0,00';
-    if (precoAlvo) precoAlvo.innerHTML = 'R$ 0,00';
-    if (precoPremium) precoPremium.innerHTML = 'R$ 0,00';
-    
-    // Limpar detalhamento
-    const outputCusto = document.getElementById('output-custo');
-    const outputImpostos = document.getElementById('output-impostos');
-    const outputCs = document.getElementById('output-cs');
-    const outputMargemValor = document.getElementById('output-margem-valor');
-    const outputMargemPct = document.getElementById('output-margem-pct');
-    
-    if (outputCusto) outputCusto.innerHTML = 'R$ 0,00';
-    if (outputImpostos) outputImpostos.innerHTML = 'R$ 0,00';
-    if (outputCs) outputCs.innerHTML = 'R$ 0,00';
-    if (outputMargemValor) outputMargemValor.innerHTML = 'R$ 0,00';
-    if (outputMargemPct) outputMargemPct.innerHTML = '0%';
-    
-    // Limpar parcelamento
-    const outputEntrada = document.getElementById('output-entrada');
-    const outputParcelas = document.getElementById('output-parcelas');
-    const outputTotalJuros = document.getElementById('output-total-juros');
-    
-    if (outputEntrada) outputEntrada.innerHTML = 'R$ 0,00';
-    if (outputParcelas) outputParcelas.innerHTML = '1x R$ 0,00';
-    if (outputTotalJuros) outputTotalJuros.innerHTML = 'R$ 0,00';
-    
-    // Limpar composição do preço
-    const composicaoCusto = document.getElementById('composicao-custo');
-    const composicaoBuffer = document.getElementById('composicao-buffer');
-    const composicaoImpostos = document.getElementById('composicao-impostos');
-    const composicaoCs = document.getElementById('composicao-cs');
-    const composicaoParceiro = document.getElementById('composicao-parceiro');
-    const composicaoBase = document.getElementById('composicao-base');
-    const composicaoMargem = document.getElementById('composicao-margem');
-    
-    if (composicaoCusto) composicaoCusto.innerHTML = 'R$ 0,00';
-    if (composicaoBuffer) composicaoBuffer.innerHTML = 'R$ 0,00';
-    if (composicaoImpostos) composicaoImpostos.innerHTML = 'R$ 0,00';
-    if (composicaoCs) composicaoCs.innerHTML = 'R$ 0,00';
-    if (composicaoParceiro) composicaoParceiro.innerHTML = 'R$ 0,00';
-    if (composicaoBase) composicaoBase.innerHTML = 'R$ 0,00';
-    if (composicaoMargem) composicaoMargem.innerHTML = 'R$ 0,00';
-    
-    // Limpar corpo de cálculo
-    const corpoCalculo = document.getElementById('corpo-calculo');
-    if (corpoCalculo) {
-        corpoCalculo.innerHTML = '';
-    }
-    
-    // Limpar totais MO, Overhead e Subtotal
-    const totalMaoObra = document.getElementById('total-mao-obra');
-    const totalOverhead = document.getElementById('total-overhead');
-    const subtotalGeral = document.getElementById('subtotal-geral');
-    
-    if (totalMaoObra) totalMaoObra.innerHTML = 'R$ 0,00';
-    if (totalOverhead) totalOverhead.innerHTML = 'R$ 0,00';
-    if (subtotalGeral) subtotalGeral.innerHTML = 'R$ 0,00';
-    
-    // Limpar alertas
-    const alertasContainer = document.getElementById('alertas-container');
-    if (alertasContainer) {
-        alertasContainer.innerHTML = '<div class="alert alert-success">✅ Nenhum alerta identificado</div>';
-    }
-    
-    console.log('✅ Outputs de cálculo limpos');
-}
-
-// ========== LIMPAR FORMULÁRIO APÓS SALVAR ==========
-function limparFormularioInput() {
-    console.log('🧹 Limpando formulário de input completamente...');
-    
-    // Limpar campos principais
-    const clienteInput = document.getElementById('cliente');
-    const escopoText = document.getElementById('escopo');
-    if (clienteInput) clienteInput.value = '';
-    if (escopoText) escopoText.value = '';
-    
-    // Resetar selects para valores padrão
-    const segmentoSelect = document.getElementById('segmento');
-    const tipoSelect = document.getElementById('tipo');
-    const riscoSelect = document.getElementById('risco');
-    const produtoSelect = document.getElementById('produto');
-    const complexidadeSelect = document.getElementById('complexidade');
-    const urgenciaSelect = document.getElementById('urgencia');
-    
-    if (segmentoSelect) segmentoSelect.value = 'tecnologia';
-    if (tipoSelect) tipoSelect.value = 'novo';
-    if (riscoSelect) riscoSelect.value = 'baixo';
-    if (produtoSelect) produtoSelect.value = 'contencioso_tributario';
-    if (complexidadeSelect) complexidadeSelect.value = 'media';
-    if (urgenciaSelect) urgenciaSelect.value = 'normal';
-    
-    // Resetar condições comerciais
-    const entradaInput = document.getElementById('entrada');
-    const parcelasInput = document.getElementById('parcelas');
-    const descontoInput = document.getElementById('desconto');
-    const percParceiroInput = document.getElementById('percParceiro');
-    const percCSInput = document.getElementById('percCS');
-    const aplicaCSSelect = document.getElementById('aplicaCS');
-    const parceiroSelect = document.getElementById('parceiro');
-    const riscoEscopoInput = document.getElementById('riscoEscopo');
-    
-    if (entradaInput) entradaInput.value = '50';
-    if (parcelasInput) parcelasInput.value = '1';
-    if (descontoInput) descontoInput.value = '0';
-    if (percParceiroInput) percParceiroInput.value = '0';
-    if (percCSInput) percCSInput.value = '7.5';
-    if (aplicaCSSelect) aplicaCSSelect.value = 'sim';
-    if (parceiroSelect) parceiroSelect.value = 'nao';
-    if (riscoEscopoInput) riscoEscopoInput.value = '20';
-    
-    // Resetar radio button para "Hora"
-    const radioHora = document.querySelector('input[name="cobranca"][value="hora"]');
-    if (radioHora) {
-        radioHora.checked = true;
-        document.querySelectorAll('.radio-option').forEach(o => o.classList.remove('selected'));
-        const parentHora = radioHora.closest('.radio-option');
-        if (parentHora) parentHora.classList.add('selected');
-    }
-    
-    // Resetar perfis para apenas 1 perfil padrão
-    const container = document.getElementById('perfis-container');
-    if (container) {
-        container.innerHTML = '';
-        adicionarPerfil();
-    }
-    
-    // Limpar variáveis de estado
-    indiceEditando = -1;
-    window.ultimoResultado = null;
-    
-    // Limpar outputs de cálculo
-    limparOutputsCalculo();
-    
-    console.log('✅ Formulário completamente limpo, modo edição desativado, outputs limpos');
-}
-
 // ========== LOGIN ==========
-async function verificarSessao() {
+function verificarSessao() {
     const sessao = localStorage.getItem('mfbd_sessao');
-    
-    if (!sessao) {
-        console.log('🔐 Nenhuma sessão encontrada. Exibindo tela de login.');
-        mostrarTelaLogin();
-        return false;
-    }
-    
-    console.log('⚠️ Sessão detectada, mas por segurança, solicitando novo login.');
-    localStorage.removeItem('mfbd_sessao');
-    mostrarTelaLogin();
-    return false;
-}
-
-function verificarSessaoAposLogin() {
-    const sessao = localStorage.getItem('mfbd_sessao');
-    if (!sessao) return false;
-    
-    try {
-        const usuario = JSON.parse(sessao);
-        if (usuario && usuario.email) {
-            usuarioAtual = usuario;
-            return true;
+    if (sessao) {
+        try { 
+            usuarioAtual = JSON.parse(sessao);
+            
+            if (typeof firebaseConectado !== 'undefined' && firebaseConectado && firebaseDatabase) {
+                const id = usuarioAtual.email.replace(/[.#$\[\]]/g, '_');
+                firebaseDatabase.ref('usuarios/' + id).once('value').then(snap => {
+                    if (!snap.exists()) {
+                        console.log('⚠️ Usuário não encontrado no Firebase, realizando logout...');
+                        fazerLogout();
+                        mostrarToast('⚠️ Sessão expirada. Faça login novamente.', 'warning');
+                    } else {
+                        mostrarSistema(); 
+                        atualizarHeaderUsuario(); 
+                        carregarTodosDados();
+                    }
+                }).catch(() => {
+                    mostrarSistema(); 
+                    atualizarHeaderUsuario(); 
+                    carregarTodosDados();
+                });
+            } else {
+                mostrarSistema(); 
+                atualizarHeaderUsuario(); 
+                carregarTodosDados();
+            }
+        } catch(e) { 
+            console.error('Erro ao restaurar sessão:', e);
+            localStorage.removeItem('mfbd_sessao');
+            mostrarTelaLogin(); 
         }
-    } catch(e) {
-        return false;
+    } else { 
+        mostrarTelaLogin(); 
     }
-    return false;
 }
 
 function mostrarTelaLogin() {
     const telaLogin = document.getElementById('tela-login');
     const sistema = document.getElementById('sistema-principal');
-    
     if (telaLogin) telaLogin.style.display = 'flex';
     if (sistema) sistema.style.display = 'none';
     
     const emailInput = document.getElementById('login-email');
     const senhaInput = document.getElementById('login-senha');
-    const loginErro = document.getElementById('login-erro');
-    
     if (emailInput) emailInput.value = '';
     if (senhaInput) senhaInput.value = '';
-    if (loginErro) loginErro.style.display = 'none';
-    
-    if (firebaseDatabase && listenerConfigurado) {
-        try {
-            firebaseDatabase.ref('historico').off();
-        } catch(e) {}
-        listenerConfigurado = false;
-    }
-    
-    console.log('📱 Tela de login exibida');
 }
 
 function mostrarSistema() {
     const telaLogin = document.getElementById('tela-login');
     const sistema = document.getElementById('sistema-principal');
-    
     if (telaLogin) telaLogin.style.display = 'none';
     if (sistema) sistema.style.display = 'block';
-    
     setTimeout(() => { 
         if (document.querySelectorAll('.perfil-row').length === 0) adicionarPerfil(); 
         atualizarTodosCustos(); 
         atualizarHistorico(); 
         carregarListaUsuarios();
-        limparFormularioInput();
     }, 100);
-    
-    console.log('💻 Sistema principal exibido para:', usuarioAtual?.email);
 }
 
 function atualizarHeaderUsuario() {
@@ -429,6 +158,7 @@ async function fazerLogin(event) {
                     id: id
                 };
                 
+                // Update sem aguardar para não travar
                 firebaseDatabase.ref('usuarios/' + id).update({
                     ultimoAcesso: new Date().toISOString(),
                     ultimoAcessoFormatado: new Date().toLocaleString('pt-BR')
@@ -436,16 +166,11 @@ async function fazerLogin(event) {
                 
                 localStorage.setItem('mfbd_sessao', JSON.stringify(usuarioAtual));
                 mostrarToast('✅ Login realizado com sucesso!');
-                
                 setTimeout(() => { 
                     if (loading) loading.style.display = 'none';
                     mostrarSistema(); 
                     atualizarHeaderUsuario(); 
                     carregarTodosDados(); 
-                    
-                    if (window.location.hash || window.location.search) {
-                        window.history.replaceState({}, document.title, window.location.pathname);
-                    }
                 }, 500);
                 return;
             }
@@ -477,47 +202,38 @@ function toggleSenha() {
 function fazerLogout() {
     console.log('🚪 Executando logout...');
     
-    if (firebaseDatabase) {
-        try {
-            firebaseDatabase.ref('historico').off();
-            firebaseDatabase.ref('historico').off('child_added');
-            firebaseDatabase.ref('historico').off('child_changed');
-            firebaseDatabase.ref('historico').off('child_removed');
-        } catch(e) { console.warn('Erro ao remover listeners:', e); }
+    // Remover listener ativo se existir
+    if (listenerAtivo && firebaseDatabase) {
+        firebaseDatabase.ref('historico').off('child_added');
+        listenerAtivo = false;
     }
-    listenerAtivo = false;
-    listenerConfigurado = false;
     
     localStorage.removeItem('mfbd_sessao');
     
     usuarioAtual = null;
     indiceEditando = -1;
     window.ultimoResultado = null;
-    historico = [];
     
+    // Limpar cache
     cacheFirebase = {
         historico: { dados: null, timestamp: null, ultimoId: null },
         configuracoes: { dados: null, timestamp: null },
         usuarios: { dados: null, timestamp: null }
     };
     
-    destruirGraficos();
+    if (graficoPrecos) { graficoPrecos.destroy(); graficoPrecos = null; }
+    if (graficoSegmentos) { graficoSegmentos.destroy(); graficoSegmentos = null; }
+    if (graficoMargens) { graficoMargens.destroy(); graficoMargens = null; }
+    if (graficoRisco) { graficoRisco.destroy(); graficoRisco = null; }
+    if (graficoTopClientes) { graficoTopClientes.destroy(); graficoTopClientes = null; }
+    if (graficoTendenciaMargens) { graficoTendenciaMargens.destroy(); graficoTendenciaMargens = null; }
     
     mostrarTelaLogin();
     mostrarToast('👋 Logout realizado com sucesso!');
-    
-    if (window.location.hash || window.location.search) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-    }
 }
 
-// ========== FIREBASE ==========
+// ========== FIREBASE OTIMIZADO ==========
 function testarConexaoFirebase() {
-    if (!verificarSessaoAposLogin()) {
-        mostrarToast('⚠️ Faça login primeiro!', 'warning');
-        return;
-    }
-    
     const status = document.getElementById('firebase-status');
     if (!status) return;
     if (typeof firebaseConectado === 'undefined' || !firebaseConectado || !firebaseDatabase) {
@@ -540,56 +256,68 @@ function testarConexaoFirebase() {
     });
 }
 
+// NOVO: Carregamento otimizado com cache
 async function carregarTodosDados() {
-    if (!verificarSessaoAposLogin()) {
-        console.log('⚠️ Tentativa de carregar dados sem autenticação');
-        forceLogoutAndRedirect();
-        return;
-    }
-    
     if (typeof firebaseConectado === 'undefined' || !firebaseConectado || !firebaseDatabase) { 
         carregarDadosLocal(); 
         return; 
     }
     
+    const agora = Date.now();
+    
+    // Verificar cache do histórico
+    if (cacheFirebase.historico.dados && (agora - cacheFirebase.historico.timestamp) < CACHE_VALIDADE.historico) {
+        console.log('📦 Usando cache do histórico (evitou chamada Firebase)');
+        historico = cacheFirebase.historico.dados;
+        atualizarHistorico();
+        atualizarDashboardSeAtivo();
+        mostrarToast(`✅ ${historico.length} registros carregados do cache!`);
+        return;
+    }
+    
     mostrarToast('🔄 Carregando dados do Firebase...', 'warning');
     
     try {
-        const snapshot = await firebaseDatabase.ref('historico').once('value');
+        // Carregar apenas os últimos 50 registros inicialmente
+        const ultimosRegistros = await firebaseDatabase
+            .ref('historico')
+            .orderByChild('timestamp')
+            .limitToLast(50)
+            .once('value');
         
-        if (snapshot.exists()) {
-            const historicoObj = snapshot.val();
-            historico = Object.entries(historicoObj).map(([id, item]) => ({ 
-                ...item, 
-                id: id,
-                firebaseId: id 
-            })).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
-            
+        if (ultimosRegistros.exists()) {
+            const historicoObj = ultimosRegistros.val();
+            historico = Object.values(historicoObj).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
             localStorage.setItem('historicoSmartPrice', JSON.stringify(historico));
             
+            // Atualizar cache
             cacheFirebase.historico = {
                 dados: historico,
-                timestamp: Date.now(),
+                timestamp: agora,
                 ultimoId: Object.keys(historicoObj)[0]
             };
             
-            console.log(`✅ Carregados ${historico.length} registros do Firebase`);
+            console.log(`✅ Carregados ${historico.length} registros (últimos 50 do Firebase)`);
+            
+            // Configurar listener para novos registros
+            configurarListenerNovosRegistros();
         } else {
             carregarDadosLocal();
         }
         
-        configurarListenersRealtime();
-        
+        // Carregar configurações com cache
         await carregarConfiguracoesComCache();
+        
+        // Carregar usuários com cache
         await carregarUsuariosComCache();
         
         atualizarHistorico();
         atualizarDashboardSeAtivo();
-        mostrarToast(`✅ ${historico.length} registros carregados! Atualizações em tempo real ativas.`);
+        mostrarToast(`✅ ${historico.length} registros carregados com sucesso!`);
         
         const statusDiv = document.getElementById('firebase-status');
         if (statusDiv) {
-            statusDiv.innerHTML = `✅ Firebase conectado! ${historico.length} registros (tempo real ativo)`;
+            statusDiv.innerHTML = `✅ Firebase conectado! ${historico.length} registros carregados.`;
             statusDiv.style.background = '#dcfce7';
             statusDiv.style.color = '#166534';
         }
@@ -600,110 +328,41 @@ async function carregarTodosDados() {
     }
 }
 
-function configurarListenersRealtime() {
-    if (!verificarSessaoAposLogin()) {
-        console.log('⚠️ Não configurando listeners - usuário não autenticado');
-        return;
+// NOVO: Listener para novos registros (evita recarregar tudo)
+function configurarListenerNovosRegistros() {
+    if (listenerAtivo) return;
+    
+    if (typeof firebaseConectado !== 'undefined' && firebaseConectado && firebaseDatabase) {
+        listenerAtivo = true;
+        
+        firebaseDatabase.ref('historico')
+            .orderByChild('timestamp')
+            .limitToLast(1)
+            .on('child_added', (snapshot) => {
+                const novoRegistro = snapshot.val();
+                const id = snapshot.key;
+                
+                // Verificar se já existe no histórico local
+                const existe = historico.some(item => item.id === id);
+                if (!existe && novoRegistro) {
+                    console.log('🆕 Novo registro detectado via listener:', id);
+                    historico.unshift(novoRegistro);
+                    localStorage.setItem('historicoSmartPrice', JSON.stringify(historico));
+                    atualizarHistorico();
+                    atualizarDashboardSeAtivo();
+
+                    
+                    // Mostrar toast discreto
+                    mostrarToast(`📊 Nova simulação adicionada: ${novoRegistro.cliente || 'Sem cliente'}`, 'info');
+                }
+            });
+        
+        console.log('👂 Listener de novos registros ativado');
     }
-    
-    if (listenerConfigurado || !firebaseDatabase) return;
-    
-    console.log('🔌 Configurando listeners em tempo real...');
-    listenerConfigurado = true;
-    
-    firebaseDatabase.ref('historico').on('child_added', (snapshot) => {
-        if (!verificarSessaoAposLogin()) return;
-        
-        const novoRegistro = snapshot.val();
-        const id = snapshot.key;
-        
-        const existe = historico.some(item => item.id === id || item.firebaseId === id);
-        
-        if (!existe && novoRegistro) {
-            console.log('🆕 Novo registro adicionado via real-time:', id);
-            const novoItem = { ...novoRegistro, id: id, firebaseId: id };
-            historico.unshift(novoItem);
-            localStorage.setItem('historicoSmartPrice', JSON.stringify(historico));
-            
-            cacheFirebase.historico.dados = historico;
-            cacheFirebase.historico.timestamp = Date.now();
-            
-            atualizarHistorico();
-            atualizarDashboardSeAtivo();
-            mostrarToast(`📊 Nova simulação adicionada: ${novoRegistro.cliente || 'Sem cliente'}`, 'info');
-        }
-    });
-    
-    firebaseDatabase.ref('historico').on('child_changed', (snapshot) => {
-        if (!verificarSessaoAposLogin()) return;
-        
-        const registroAtualizado = snapshot.val();
-        const id = snapshot.key;
-        
-        console.log('✏️ Registro atualizado via real-time:', id);
-        
-        const index = historico.findIndex(item => item.id === id || item.firebaseId === id);
-        if (index !== -1) {
-            historico[index] = { ...registroAtualizado, id: id, firebaseId: id };
-            localStorage.setItem('historicoSmartPrice', JSON.stringify(historico));
-            
-            cacheFirebase.historico.dados = historico;
-            cacheFirebase.historico.timestamp = Date.now();
-            
-            atualizarHistorico();
-            atualizarDashboardSeAtivo();
-            mostrarToast(`✏️ Simulação atualizada: ${registroAtualizado.cliente || 'Sem cliente'}`, 'info');
-        }
-    });
-    
-    firebaseDatabase.ref('historico').on('child_removed', (snapshot) => {
-        if (!verificarSessaoAposLogin()) return;
-        
-        const id = snapshot.key;
-        
-        console.log('🗑️ Registro removido via real-time:', id);
-        
-        const index = historico.findIndex(item => item.id === id || item.firebaseId === id);
-        if (index !== -1) {
-            historico.splice(index, 1);
-            localStorage.setItem('historicoSmartPrice', JSON.stringify(historico));
-            
-            cacheFirebase.historico.dados = historico;
-            cacheFirebase.historico.timestamp = Date.now();
-            
-            atualizarHistorico();
-            atualizarDashboardSeAtivo();
-            mostrarToast(`🗑️ Simulação removida`, 'info');
-        }
-    });
-    
-    console.log('✅ Listeners em tempo real configurados com sucesso!');
 }
 
-function carregarDadosLocal() {
-    if (!verificarSessaoAposLogin()) {
-        forceLogoutAndRedirect();
-        return;
-    }
-    
-    const saved = localStorage.getItem('historicoSmartPrice');
-    if (saved) {
-        try { 
-            historico = JSON.parse(saved); 
-            console.log(`✅ Carregados ${historico.length} registros do localStorage`);
-        } catch(e) { 
-            historico = []; 
-        }
-    } else {
-        historico = [];
-    }
-    atualizarHistorico();
-    atualizarDashboardSeAtivo();
-}
-
+// NOVO: Carregar configurações com cache
 async function carregarConfiguracoesComCache() {
-    if (!verificarSessaoAposLogin()) return;
-    
     const agora = Date.now();
     
     if (cacheFirebase.configuracoes.dados && (agora - cacheFirebase.configuracoes.timestamp) < CACHE_VALIDADE.configuracoes) {
@@ -728,9 +387,8 @@ async function carregarConfiguracoesComCache() {
     }
 }
 
+// NOVO: Carregar usuários com cache
 async function carregarUsuariosComCache() {
-    if (!verificarSessaoAposLogin()) return;
-    
     const agora = Date.now();
     
     if (cacheFirebase.usuarios.dados && (agora - cacheFirebase.usuarios.timestamp) < CACHE_VALIDADE.usuarios) {
@@ -753,6 +411,22 @@ async function carregarUsuariosComCache() {
     } catch(e) {
         console.warn('Erro ao carregar usuários:', e);
     }
+}
+
+function carregarDadosLocal() {
+    const saved = localStorage.getItem('historicoSmartPrice');
+    if (saved) {
+        try { 
+            historico = JSON.parse(saved); 
+            console.log(`✅ Carregados ${historico.length} registros do localStorage`);
+        } catch(e) { 
+            historico = []; 
+        }
+    } else {
+        historico = [];
+    }
+    atualizarHistorico();
+    atualizarDashboardSeAtivo();
 }
 
 function aplicarConfiguracoes(cfg) {
@@ -803,12 +477,8 @@ function aplicarConfiguracoes(cfg) {
     atualizarTodosCustos();
 }
 
+// OTIMIZADO: Salvar configurações sem bloquear
 async function salvarConfiguracoesFirebase() {
-    if (!verificarSessaoAposLogin()) {
-        mostrarToast('⚠️ Faça login primeiro!', 'warning');
-        return;
-    }
-    
     if (typeof firebaseConectado === 'undefined' || !firebaseConectado || !firebaseDatabase) { 
         mostrarToast('⚠️ Firebase offline. Configurações salvas apenas localmente.', 'warning'); 
         return; 
@@ -862,6 +532,7 @@ async function salvarConfiguracoesFirebase() {
     try { 
         await firebaseDatabase.ref('configuracoes').set(cfg);
         
+        // Atualizar cache
         cacheFirebase.configuracoes = {
             dados: cfg,
             timestamp: Date.now()
@@ -875,11 +546,6 @@ async function salvarConfiguracoesFirebase() {
 }
 
 async function carregarConfiguracoesFirebase() {
-    if (!verificarSessaoAposLogin()) {
-        mostrarToast('⚠️ Faça login primeiro!', 'warning');
-        return;
-    }
-    
     if (typeof firebaseConectado === 'undefined' || !firebaseConectado || !firebaseDatabase) { 
         mostrarToast('⚠️ Firebase offline. Não foi possível carregar.', 'warning'); 
         return; 
@@ -889,11 +555,6 @@ async function carregarConfiguracoesFirebase() {
 }
 
 async function backupDadosFirebase() {
-    if (!verificarSessaoAposLogin()) {
-        mostrarToast('⚠️ Faça login primeiro!', 'warning');
-        return;
-    }
-    
     if (typeof firebaseConectado === 'undefined' || !firebaseConectado || !firebaseDatabase) { 
         mostrarToast('⚠️ Firebase offline. Não foi possível gerar backup.', 'warning'); 
         return; 
@@ -918,11 +579,6 @@ async function backupDadosFirebase() {
 
 // ========== GERENCIAMENTO DE USUÁRIOS ==========
 async function carregarListaUsuarios() {
-    if (!verificarSessaoAposLogin()) {
-        console.log('⚠️ Tentativa de carregar usuários sem autenticação');
-        return;
-    }
-    
     if (typeof firebaseConectado === 'undefined' || !firebaseConectado || !firebaseDatabase) {
         const container = document.getElementById('lista-usuarios');
         if (container) container.innerHTML = '<div class="info-text">⚠️ Firebase offline. Não é possível carregar usuários.</div>';
@@ -933,8 +589,6 @@ async function carregarListaUsuarios() {
 }
 
 function atualizarListaUsuarios(usuarios) {
-    if (!verificarSessaoAposLogin()) return;
-    
     const container = document.getElementById('lista-usuarios');
     if (!container) return;
     
@@ -983,7 +637,7 @@ function atualizarListaUsuarios(usuarios) {
                 ${podeEditar ? `<button class="btn-icon" onclick="abrirModalEditarUsuario('${u.id}')" title="Editar" style="background: none; border: none; cursor: pointer; font-size: 18px; margin: 0 5px;">✏️</button>` : ''}
                 ${podeExcluir ? `<button class="btn-icon btn-icon-danger" onclick="excluirUsuario('${u.id}', '${u.email.replace(/'/g, "\\'")}')" title="Excluir" style="background: none; border: none; cursor: pointer; font-size: 18px; margin: 0 5px; color: #ef4444;">🗑️</button>` : ''}
             </td>
-          </tr>`;
+         </tr>`;
     });
     
     html += `
@@ -995,11 +649,6 @@ function atualizarListaUsuarios(usuarios) {
 }
 
 async function adicionarUsuarioFirebase() {
-    if (!verificarSessaoAposLogin()) {
-        mostrarToast('⚠️ Faça login primeiro!', 'warning');
-        return;
-    }
-    
     if (typeof firebaseConectado === 'undefined' || !firebaseConectado || !firebaseDatabase) { 
         mostrarToast('⚠️ Firebase offline. Não foi possível adicionar usuário.', 'warning'); 
         return; 
@@ -1039,6 +688,7 @@ async function adicionarUsuarioFirebase() {
             ultimoAcessoFormatado: null
         });
         
+        // Invalidar cache de usuários
         cacheFirebase.usuarios = { dados: null, timestamp: null };
         
         mostrarToast('✅ Usuário adicionado com sucesso!');
@@ -1056,11 +706,6 @@ async function adicionarUsuarioFirebase() {
 }
 
 function abrirModalEditarUsuario(userId) {
-    if (!verificarSessaoAposLogin()) {
-        mostrarToast('⚠️ Faça login primeiro!', 'warning');
-        return;
-    }
-    
     if (typeof firebaseConectado === 'undefined' || !firebaseConectado || !firebaseDatabase) {
         mostrarToast('⚠️ Firebase offline', 'warning');
         return;
@@ -1119,11 +764,6 @@ function abrirModalEditarUsuario(userId) {
 }
 
 async function salvarEdicaoUsuario(userId) {
-    if (!verificarSessaoAposLogin()) {
-        mostrarToast('⚠️ Faça login primeiro!', 'warning');
-        return;
-    }
-    
     const nome = document.getElementById('editUsuarioNome')?.value;
     const perfil = document.getElementById('editUsuarioPerfil')?.value;
     const novaSenha = document.getElementById('editUsuarioSenha')?.value;
@@ -1151,6 +791,7 @@ async function salvarEdicaoUsuario(userId) {
         
         await firebaseDatabase.ref('usuarios/' + userId).update(updates);
         
+        // Invalidar cache de usuários
         cacheFirebase.usuarios = { dados: null, timestamp: null };
         
         mostrarToast('✅ Usuário atualizado com sucesso!');
@@ -1163,11 +804,6 @@ async function salvarEdicaoUsuario(userId) {
 }
 
 async function excluirUsuario(userId, userEmail) {
-    if (!verificarSessaoAposLogin()) {
-        mostrarToast('⚠️ Faça login primeiro!', 'warning');
-        return;
-    }
-    
     if (userId === usuarioAtual?.id) {
         mostrarToast('❌ Você não pode excluir seu próprio usuário!', 'error');
         return;
@@ -1187,6 +823,7 @@ async function excluirUsuario(userId, userEmail) {
         
         await firebaseDatabase.ref('usuarios/' + userId).remove();
         
+        // Invalidar cache de usuários
         cacheFirebase.usuarios = { dados: null, timestamp: null };
         
         mostrarToast(`✅ Usuário "${userEmail}" excluído com sucesso!`);
@@ -1198,11 +835,6 @@ async function excluirUsuario(userId, userEmail) {
 }
 
 function abrirModalNovoUsuario() {
-    if (!verificarSessaoAposLogin()) {
-        mostrarToast('⚠️ Faça login primeiro!', 'warning');
-        return;
-    }
-    
     const modal = document.createElement('div');
     modal.className = 'modal';
     modal.id = 'modalNovoUsuario';
@@ -1269,8 +901,6 @@ function getCustoHora(perfil) {
 }
 
 function atualizarTodosCustos() {
-    if (!verificarSessaoAposLogin()) return;
-    
     const perfis = ['Estag', 'Jr', 'Pl', 'Sr', 'Coord', 'Socio'];
     const overheadTotal = parseFloat(document.getElementById('overheadTotal')?.value) || 45000;
     const horasTotais = parseFloat(document.getElementById('horasTotais')?.value) || 720;
@@ -1366,12 +996,6 @@ function atualizarCustoPrevisto(div) {
 
 // ========== CÁLCULO PRINCIPAL ==========
 function calcular() {
-    if (!verificarSessaoAposLogin()) {
-        mostrarToast('⚠️ Faça login primeiro!', 'warning');
-        forceLogoutAndRedirect();
-        return;
-    }
-    
     try {
         const perfisContainer = document.getElementById('perfis-container');
         if (!perfisContainer) {
@@ -1470,7 +1094,7 @@ function calcular() {
         let dataParaSalvar;
         
         if (indiceEditando !== -1 && historico[indiceEditando]) {
-            idParaSalvar = historico[indiceEditando].id || historico[indiceEditando].firebaseId;
+            idParaSalvar = historico[indiceEditando].id;
             timestampParaSalvar = historico[indiceEditando].timestamp;
             dataParaSalvar = historico[indiceEditando].data;
             console.log('📝 Modo edição - Mantendo ID:', idParaSalvar);
@@ -1575,15 +1199,9 @@ function calcular() {
         mostrarToast('❌ Erro no cálculo: ' + e.message, 'error'); 
     }
 }
-
-// ========== SALVAR HISTÓRICO ==========
+// ========== SALVAR HISTÓRICO (OTIMIZADO - COM REDIRECIONAMENTO) ==========
+// ========== SALVAR HISTÓRICO (VERSÃO CORRIGIDA COM REDIRECIONAMENTO FORÇADO) ==========
 async function salvarHistorico() {
-    if (!verificarSessaoAposLogin()) {
-        mostrarToast('⚠️ Faça login primeiro!', 'warning');
-        forceLogoutAndRedirect();
-        return;
-    }
-    
     if (!window.ultimoResultado) { 
         mostrarToast('❌ Calcule um preço primeiro!', 'warning'); 
         return; 
@@ -1598,60 +1216,74 @@ async function salvarHistorico() {
     
     try {
         const isEditando = (indiceEditando !== -1);
-        const idExistente = isEditando && historico[indiceEditando] ? (historico[indiceEditando].id || historico[indiceEditando].firebaseId) : null;
+        const idExistente = isEditando && historico[indiceEditando] ? historico[indiceEditando].id : null;
         
         if (isEditando && idExistente) {
             window.ultimoResultado.id = idExistente;
             window.ultimoResultado.timestamp = historico[indiceEditando].timestamp;
             window.ultimoResultado.data = historico[indiceEditando].data;
-            console.log('✏️ Atualizando registro existente - ID:', idExistente);
         }
         
+        // Salvar no Firebase
         if (typeof firebaseConectado !== 'undefined' && firebaseConectado && firebaseDatabase) {
             await firebaseDatabase.ref('historico/' + window.ultimoResultado.id).set(window.ultimoResultado);
-            console.log('✅ Salvo no Firebase com ID:', window.ultimoResultado.id);
         }
         
+        // Atualizar array local e localStorage
         if (isEditando && idExistente) {
-            const index = historico.findIndex(item => (item.id === idExistente) || (item.firebaseId === idExistente));
-            if (index !== -1) {
-                historico[index] = { ...window.ultimoResultado, firebaseId: window.ultimoResultado.id };
-                console.log('✏️ Registro atualizado no índice:', index);
-            } else {
-                historico.unshift({ ...window.ultimoResultado, firebaseId: window.ultimoResultado.id });
-                console.log('⚠️ ID não encontrado, adicionado ao início');
-            }
+            const index = historico.findIndex(item => item.id === idExistente);
+            if (index !== -1) historico[index] = window.ultimoResultado;
         } else {
-            const existe = historico.some(item => (item.id === window.ultimoResultado.id) || (item.firebaseId === window.ultimoResultado.id));
-            if (!existe) {
-                historico.unshift({ ...window.ultimoResultado, firebaseId: window.ultimoResultado.id });
-                console.log('🆕 Novo registro adicionado');
-            } else {
-                const index = historico.findIndex(item => (item.id === window.ultimoResultado.id) || (item.firebaseId === window.ultimoResultado.id));
-                if (index !== -1) historico[index] = { ...window.ultimoResultado, firebaseId: window.ultimoResultado.id };
-                else historico.unshift({ ...window.ultimoResultado, firebaseId: window.ultimoResultado.id });
-            }
+            const existe = historico.some(item => item.id === window.ultimoResultado.id);
+            if (!existe) historico.unshift(window.ultimoResultado);
         }
         
         localStorage.setItem('historicoSmartPrice', JSON.stringify(historico));
         
+        // Atualizar cache
         cacheFirebase.historico.dados = historico;
         cacheFirebase.historico.timestamp = Date.now();
         
         const acao = isEditando ? 'atualizada' : 'salva';
         mostrarToast(`✅ Simulação ${acao} com sucesso!`, 'success');
         
-        // LIMPAR COMPLETAMENTE O FORMULÁRIO E OUTPUTS APÓS SALVAR
-        limparFormularioInput();
+        // Limpeza
+        if (!isEditando) {
+            const clienteInput = document.getElementById('cliente');
+            const escopoInput = document.getElementById('escopo');
+            if (clienteInput) clienteInput.value = '';
+            if (escopoInput) escopoInput.value = '';
+        } else if (typeof limparFormularioCompleto === 'function') {
+            limparFormularioCompleto();
+        }
         
+        indiceEditando = -1;
+        window.ultimoResultado = null;
+        
+        // Atualizar visualização
         atualizarHistorico();
         atualizarDashboardSeAtivo();
         
-        window.ultimoResultado = null;
-        indiceEditando = -1;
+        // ========== TENTATIVA DE REDIRECIONAMENTO (2 MÉTODOS) ==========
         
-        // Após salvar, mostrar o histórico
-        showTab('historico');
+        // Método 1: Tentar encontrar o botão da aba pelo atributo data-tab
+        const btnTab = document.querySelector('.tab-btn[data-tab="historico"]') || 
+                       document.querySelector('[onclick*="historico"]') ||
+                       document.querySelector('.nav-link[href="#historico"]');
+
+        if (btnTab) {
+            btnTab.click();
+            console.log('✅ Redirecionado via clique no botão da aba');
+        } else {
+            // Método 2: Se o seu sistema usa uma função global para trocar abas (comum no MFBD)
+            if (typeof showTab === 'function') {
+                showTab('historico');
+                console.log('✅ Redirecionado via função showTab()');
+            } else if (typeof mudarAba === 'function') {
+                mudarAba('historico');
+                console.log('✅ Redirecionado via função mudarAba()');
+            }
+        }
         
     } catch(e) { 
         console.error('Erro ao salvar:', e);
@@ -1664,13 +1296,241 @@ async function salvarHistorico() {
     }
 }
 
-async function excluirItemFirebase(id, idx) {
-    if (!verificarSessaoAposLogin()) {
-        mostrarToast('⚠️ Faça login primeiro!', 'warning');
-        return;
+
+
+// ========== FUNÇÃO AUXILIAR: LIMPAR FORMULÁRIO COMPLETO ==========
+function limparFormularioCompleto() {
+    console.log('🧹 Resetando formulário completo...');
+    
+    // Limpar campos de texto
+    const clienteInput = document.getElementById('cliente');
+    const escopoInput = document.getElementById('escopo');
+    if (clienteInput) clienteInput.value = '';
+    if (escopoInput) escopoInput.value = '';
+    
+    // Resetar selects para valores padrão
+    const segmentoSelect = document.getElementById('segmento');
+    const tipoSelect = document.getElementById('tipo');
+    const riscoSelect = document.getElementById('risco');
+    const produtoSelect = document.getElementById('produto');
+    const complexidadeSelect = document.getElementById('complexidade');
+    const urgenciaSelect = document.getElementById('urgencia');
+    const aplicaCSSelect = document.getElementById('aplicaCS');
+    const parceiroSelect = document.getElementById('parceiro');
+    
+    if (segmentoSelect) segmentoSelect.value = 'tecnologia';
+    if (tipoSelect) tipoSelect.value = 'novo';
+    if (riscoSelect) riscoSelect.value = 'baixo';
+    if (produtoSelect) produtoSelect.value = 'consultoria';
+    if (complexidadeSelect) complexidadeSelect.value = 'media';
+    if (urgenciaSelect) urgenciaSelect.value = 'normal';
+    if (aplicaCSSelect) aplicaCSSelect.value = 'sim';
+    if (parceiroSelect) parceiroSelect.value = 'nao';
+    
+    // Resetar inputs numéricos
+    const entradaInput = document.getElementById('entrada');
+    const parcelasInput = document.getElementById('parcelas');
+    const descontoInput = document.getElementById('desconto');
+    const percParceiroInput = document.getElementById('percParceiro');
+    const percCSInput = document.getElementById('percCS');
+    const riscoEscopoInput = document.getElementById('riscoEscopo');
+    
+    if (entradaInput) entradaInput.value = '50';
+    if (parcelasInput) parcelasInput.value = '1';
+    if (descontoInput) descontoInput.value = '0';
+    if (percParceiroInput) percParceiroInput.value = '0';
+    if (percCSInput) percCSInput.value = '7.5';
+    if (riscoEscopoInput) riscoEscopoInput.value = '20';
+    
+    // Resetar radio buttons para o padrão (cobrança por hora)
+    const radioHora = document.querySelector('input[name="cobranca"][value="hora"]');
+    if (radioHora) {
+        radioHora.checked = true;
+        document.querySelectorAll('.radio-option').forEach(o => o.classList.remove('selected'));
+        const parentHora = radioHora.closest('.radio-option');
+        if (parentHora) parentHora.classList.add('selected');
     }
     
-    if (!confirm(`🗑️ Excluir permanentemente esta simulação?`)) return;
+    // Resetar perfis (deixar apenas 1 perfil padrão)
+    const container = document.getElementById('perfis-container');
+    if (container) {
+        container.innerHTML = '';
+        const div = document.createElement('div');
+        div.className = 'perfil-row';
+        div.innerHTML = `<select class="perfil">
+                <option value="estag">Estagiário</option>
+                <option value="jr">Júnior</option>
+                <option value="pl" selected>Pleno</option>
+                <option value="sr">Sênior</option>
+                <option value="coord">Coordenador</option>
+                <option value="socio">Sócio</option>
+            </select>
+            <input type="number" class="horas" value="40" min="0" step="1" placeholder="Horas">
+            <span class="custo-previsto">R$ 0,00</span>
+            <button type="button" class="remove-btn" onclick="removerPerfil(this)">✕</button>`;
+        container.appendChild(div);
+        
+        const horasInput = div.querySelector('.horas');
+        const perfilSelect = div.querySelector('.perfil');
+        if (horasInput) horasInput.addEventListener('input', () => atualizarCustoPrevisto(div));
+        if (perfilSelect) perfilSelect.addEventListener('change', () => atualizarCustoPrevisto(div));
+        atualizarCustoPrevisto(div);
+    }
+    
+    // Limpar outputs/results
+    const outputFields = ['preco-piso', 'preco-alvo', 'preco-premium', 'output-custo', 
+                          'output-impostos', 'output-cs', 'output-margem-valor', 'output-margem-pct',
+                          'output-entrada', 'output-parcelas', 'output-total-juros'];
+    outputFields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = 'R$ 0,00';
+    });
+    
+    const margemPctEl = document.getElementById('output-margem-pct');
+    if (margemPctEl) margemPctEl.innerHTML = '0%';
+    
+    const composicaoFields = ['composicao-custo', 'composicao-buffer', 'composicao-impostos', 
+                              'composicao-cs', 'composicao-parceiro', 'composicao-base', 'composicao-margem'];
+    composicaoFields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = 'R$ 0,00';
+    });
+    
+    const alertContainer = document.getElementById('alertas-container');
+    if (alertContainer) {
+        alertContainer.innerHTML = '<div class="alert alert-success">✅ Nenhum alerta identificado</div>';
+    }
+    
+    const corpoCalculo = document.getElementById('corpo-calculo');
+    if (corpoCalculo) {
+        corpoCalculo.innerHTML = '<tr><td colspan="6" class="text-center">Nenhum perfil adicionado ainda</td></tr>';
+    }
+    
+    const totalMaoObra = document.getElementById('total-mao-obra');
+    const totalOverhead = document.getElementById('total-overhead');
+    const subtotalGeral = document.getElementById('subtotal-geral');
+    
+    if (totalMaoObra) totalMaoObra.innerHTML = 'R$ 0,00';
+    if (totalOverhead) totalOverhead.innerHTML = 'R$ 0,00';
+    if (subtotalGeral) subtotalGeral.innerHTML = 'R$ 0,00';
+    
+    mostrarToast('🧹 Formulário resetado para novo cálculo', 'info');
+}
+
+// ========== EDITAR ITEM (MELHORADO) ==========
+function editarItem(idx) {
+    const item = historico[idx];
+    if (!item) return;
+    
+    const idOriginal = item.id;
+    const estavaEditando = (indiceEditando !== -1);
+    indiceEditando = idx;
+    
+    console.log('✏️ Editando item:', { id: idOriginal, cliente: item.cliente, indice: idx });
+    mostrarToast(`✏️ Editando: ${item.cliente} - ID: ${idOriginal}`, 'warning');
+    
+    // Preencher formulário com os dados do item
+    const clienteInput = document.getElementById('cliente');
+    const segmentoSelect = document.getElementById('segmento');
+    const tipoSelect = document.getElementById('tipo');
+    const riscoSelect = document.getElementById('risco');
+    const produtoSelect = document.getElementById('produto');
+    const escopoText = document.getElementById('escopo');
+    const complexidadeSelect = document.getElementById('complexidade');
+    const urgenciaSelect = document.getElementById('urgencia');
+    const entradaInput = document.getElementById('entrada');
+    const parcelasInput = document.getElementById('parcelas');
+    const descontoInput = document.getElementById('desconto');
+    const percParceiroInput = document.getElementById('percParceiro');
+    const percCSInput = document.getElementById('percCS');
+    const aplicaCSSelect = document.getElementById('aplicaCS');
+    const parceiroSelect = document.getElementById('parceiro');
+    const riscoEscopoInput = document.getElementById('riscoEscopo');
+    
+    if (clienteInput) clienteInput.value = item.cliente || '';
+    if (segmentoSelect) segmentoSelect.value = item.segmento || 'tecnologia';
+    if (tipoSelect) tipoSelect.value = item.tipo || 'novo';
+    if (riscoSelect) riscoSelect.value = item.risco || 'baixo';
+    if (produtoSelect) produtoSelect.value = item.produto || 'consultoria';
+    if (escopoText) escopoText.value = item.escopo || '';
+    if (complexidadeSelect) complexidadeSelect.value = item.complexidade || 'media';
+    if (urgenciaSelect) urgenciaSelect.value = item.urgencia || 'normal';
+    if (entradaInput) entradaInput.value = item.entrada || 50;
+    if (parcelasInput) parcelasInput.value = item.parcelas || 1;
+    if (descontoInput) descontoInput.value = item.desconto || 0;
+    if (percParceiroInput) percParceiroInput.value = item.percParceiro || 0;
+    if (percCSInput) percCSInput.value = item.percCS || 7.5;
+    if (aplicaCSSelect) aplicaCSSelect.value = item.aplicaCS || 'sim';
+    if (parceiroSelect) parceiroSelect.value = item.parceiro || 'nao';
+    if (riscoEscopoInput) riscoEscopoInput.value = item.riscoEscopo || 20;
+    
+    // Configurar radio button
+    const radios = document.getElementsByName('cobranca');
+    radios.forEach(radio => {
+        if (radio.value === item.cobranca) {
+            radio.checked = true;
+            const parent = radio.closest('.radio-option');
+            if (parent) {
+                document.querySelectorAll('.radio-option').forEach(o => o.classList.remove('selected'));
+                parent.classList.add('selected');
+            }
+        }
+    });
+    
+    // Recriar perfis
+    const container = document.getElementById('perfis-container');
+    if (container) {
+        container.innerHTML = '';
+        if (item.detalhamentoCalculo && item.detalhamentoCalculo.length > 0) {
+            const perfilMap = { 
+                'Estagiário': 'estag', 
+                'Júnior': 'jr', 
+                'Pleno': 'pl', 
+                'Sênior': 'sr', 
+                'Coordenador': 'coord', 
+                'Sócio': 'socio' 
+            };
+            item.detalhamentoCalculo.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'perfil-row';
+                div.innerHTML = `<select class="perfil">
+                        <option value="estag">Estagiário</option>
+                        <option value="jr">Júnior</option>
+                        <option value="pl">Pleno</option>
+                        <option value="sr">Sênior</option>
+                        <option value="coord">Coordenador</option>
+                        <option value="socio">Sócio</option>
+                    </select>
+                    <input type="number" class="horas" value="${p.horas}" min="0" step="1" placeholder="Horas">
+                    <span class="custo-previsto">${formatarMoeda(p.custo)}</span>
+                    <button type="button" class="remove-btn" onclick="removerPerfil(this)">✕</button>`;
+                container.appendChild(div);
+                const perfilSelect = div.querySelector('.perfil');
+                if (perfilSelect) perfilSelect.value = perfilMap[p.perfil] || 'pl';
+                const horasInput = div.querySelector('.horas');
+                if (horasInput) horasInput.addEventListener('input', () => atualizarCustoPrevisto(div));
+                if (perfilSelect) perfilSelect.addEventListener('change', () => atualizarCustoPrevisto(div));
+                atualizarCustoPrevisto(div);
+            });
+        } else {
+            // Se não tiver detalhamento, criar perfil padrão
+            adicionarPerfil();
+        }
+    }
+    
+    // Opcional: recalcular automaticamente ao carregar edição
+    setTimeout(() => {
+        calcular();
+    }, 100);
+    
+    fecharModal();
+    showTab('input');
+}
+
+
+
+async function excluirItemFirebase(id, idx) {
+    if (!confirm(`🗑️ Excluir permanentemente a simulação "${id}"?`)) return;
     try {
         if (typeof firebaseConectado !== 'undefined' && firebaseConectado && firebaseDatabase) {
             await firebaseDatabase.ref('historico/' + id).remove();
@@ -1680,6 +1540,7 @@ async function excluirItemFirebase(id, idx) {
         historico.splice(idx, 1);
         localStorage.setItem('historicoSmartPrice', JSON.stringify(historico));
         
+        // Atualizar cache
         cacheFirebase.historico.dados = historico;
         cacheFirebase.historico.timestamp = Date.now();
         
@@ -1693,21 +1554,180 @@ async function excluirItemFirebase(id, idx) {
     }
 }
 
-// ========== EDIÇÃO DE ITEM ==========
-function editarItem(idx) {
-    if (!verificarSessaoAposLogin()) {
-        mostrarToast('⚠️ Faça login primeiro!', 'warning');
-        return;
+// ========== HISTÓRICO ==========
+function atualizarHistorico() {
+    carregarPreferenciasPaginacao();
+    configurarPaginacao();
+    atualizarHistoricoComPaginacao();
+}
+
+function configurarPaginacao() {
+    const lista = document.getElementById('historico-lista');
+    if (!lista) return;
+    const card = document.querySelector('#historico .card');
+    if (!card) return;
+    
+    if (!document.getElementById('itensPorPagina')) {
+        const controle = document.createElement('div');
+        controle.className = 'itens-por-pagina';
+        controle.innerHTML = `<label>Itens por página:</label><select id="itensPorPagina" onchange="mudarItensPorPagina(this.value)"><option value="5">5</option><option value="10" selected>10</option><option value="20">20</option><option value="50">50</option></select>`;
+        card.insertBefore(controle, lista);
+    }
+    if (!document.getElementById('paginacao-container')) {
+        const div = document.createElement('div');
+        div.id = 'paginacao-container';
+        div.className = 'paginacao';
+        lista.parentNode.insertBefore(div, lista.nextSibling);
+    }
+}
+
+function mudarItensPorPagina(valor) { 
+    itensPorPagina = parseInt(valor); 
+    paginaAtual = 1; 
+    salvarPreferenciasPaginacao(); 
+    atualizarHistoricoComPaginacao(); 
+}
+
+function salvarPreferenciasPaginacao() { 
+    localStorage.setItem('mfbd_itens_por_pagina', itensPorPagina); 
+}
+
+function carregarPreferenciasPaginacao() { 
+    itensPorPagina = parseInt(localStorage.getItem('mfbd_itens_por_pagina')) || 10; 
+}
+
+function atualizarHistoricoComPaginacao() {
+    const lista = document.getElementById('historico-lista');
+    if (!lista) return;
+    
+    if (!historico.length) { 
+        lista.innerHTML = '<p class="text-center" style="padding:40px">📭 Nenhuma simulação encontrada</p>'; 
+        const totalSpan = document.getElementById('total-simulacoes');
+        if (totalSpan) totalSpan.textContent = '0';
+        const pagContainer = document.getElementById('paginacao-container');
+        if (pagContainer) pagContainer.innerHTML = '';
+        return; 
     }
     
+    const filtro = document.getElementById('filtroCliente')?.value?.toLowerCase() || '';
+    const ordenar = document.getElementById('ordenarPor')?.value || 'data';
+    let filtrados = historico.filter(i => i.cliente?.toLowerCase().includes(filtro));
+    
+    if (ordenar === 'data') filtrados.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+    else if (ordenar === 'cliente') filtrados.sort((a,b) => (a.cliente || '').localeCompare(b.cliente || ''));
+    else if (ordenar === 'preco') filtrados.sort((a,b) => (b.preco || 0) - (a.preco || 0));
+    else if (ordenar === 'margem') filtrados.sort((a,b) => parseFloat(b.margem || 0) - parseFloat(a.margem || 0));
+    
+    historicoPaginado = filtrados;
+    const total = filtrados.length;
+    const totalPag = Math.ceil(total / itensPorPagina);
+    if (paginaAtual > totalPag) paginaAtual = totalPag || 1;
+    const inicio = (paginaAtual - 1) * itensPorPagina;
+    const itensPagina = filtrados.slice(inicio, inicio + itensPorPagina);
+    
+    renderizarListaHistorico(itensPagina);
+    renderizarPaginacao(total, totalPag, inicio);
+    
+    const totalSpan = document.getElementById('total-simulacoes');
+    if (totalSpan) totalSpan.textContent = total;
+}
+
+function renderizarListaHistorico(itens) {
+    const lista = document.getElementById('historico-lista');
+    if (!lista) return;
+    lista.innerHTML = '';
+    
+    itens.forEach(item => {
+        const idx = historico.findIndex(h => h.id === item.id);
+        if (idx === -1) return;
+        const riscoClass = item.risco === 'alto' ? 'badge-danger' : item.risco === 'medio' ? 'badge-warning' : 'badge-success';
+        lista.innerHTML += `<div class="historico-item" onclick="abrirModalEdicao(${idx})">
+            <div class="historico-header">
+                <span class="historico-titulo">
+                    ${item.cliente || 'Sem nome'}
+                    <span style="font-size:10px; color:#64748b; margin-left:8px;">ID: ${item.id || 'N/A'}</span>
+                </span>
+                <div class="historico-acoes" onclick="event.stopPropagation()">
+                    <button onclick="editarItem(${idx})" title="Editar">✏️</button>
+                    <button onclick="excluirItem(${idx})" title="Excluir">🗑️</button>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px">
+                <div><small>Produto</small><br><strong>${item.produtoTexto || item.produto || '-'}</strong></div>
+                <div><small>Preço</small><br><strong>${formatarMoeda(item.preco)}</strong></div>
+                <div><small>Margem</small><br><strong>${item.margem || 0}%</strong></div>
+                <div><small>Risco</small><br><span class="badge ${riscoClass}">${item.risco || '-'}</span></div>
+            </div>
+            <div style="font-size:11px;color:#64748b;margin-top:8px">
+                📅 ${item.data || ''}
+                ${item.usuario ? ` 👤 ${item.usuario}` : ''}
+            </div>
+        </div>`;
+    });
+}
+
+function renderizarPaginacao(total, totalPag, inicio) {
+    const container = document.getElementById('paginacao-container');
+    if (!container || total <= itensPorPagina) { 
+        if(container) container.innerHTML = ''; 
+        return; 
+    }
+    let html = `<div class="paginacao-info">Mostrando ${inicio+1}-${Math.min(inicio+itensPorPagina, total)} de ${total} resultados</div>`;
+    html += `<div class="paginacao-controles">`;
+    html += `<button class="paginacao-btn" onclick="irParaPagina(1)" ${paginaAtual===1?'disabled':''}>⏮️ Primeira</button>`;
+    html += `<button class="paginacao-btn" onclick="irParaPagina(${paginaAtual-1})" ${paginaAtual===1?'disabled':''}>◀️ Anterior</button>`;
+    
+    for(let i=Math.max(1, paginaAtual-2); i<=Math.min(totalPag, paginaAtual+2); i++)
+        html += `<button class="paginacao-btn ${i===paginaAtual?'active':''}" onclick="irParaPagina(${i})">${i}</button>`;
+    
+    html += `<button class="paginacao-btn" onclick="irParaPagina(${paginaAtual+1})" ${paginaAtual===totalPag?'disabled':''}>Próxima ▶️</button>`;
+    html += `<button class="paginacao-btn" onclick="irParaPagina(${totalPag})" ${paginaAtual===totalPag?'disabled':''}>Última ⏭️</button>`;
+    html += `</div>`;
+    container.innerHTML = html;
+}
+
+function irParaPagina(pag) {
+    pag = parseInt(pag);
+    if (isNaN(pag)) return;
+    const total = Math.ceil(historicoPaginado.length / itensPorPagina);
+    if (pag < 1 || pag > total) return;
+    paginaAtual = pag;
+    atualizarHistoricoComPaginacao();
+}
+
+function abrirModalEdicao(idx) {
+    const item = historico[idx];
+    if (!item) return;
+    const modalContent = document.getElementById('modal-conteudo');
+    if (!modalContent) return;
+    modalContent.innerHTML = `
+        <p><strong>ID:</strong> <code style="background:#f1f5f9;padding:4px 8px;border-radius:8px">${item.id || 'N/A'}</code></p>
+        <p><strong>Cliente:</strong> ${item.cliente || '-'}</p>
+        <p><strong>Produto:</strong> ${item.produtoTexto || item.produto || '-'}</p>
+        <p><strong>Modelo:</strong> ${item.cobrancaTexto || item.cobranca || '-'}</p>
+        <p><strong>Preço:</strong> ${formatarMoeda(item.preco)}</p>
+        <p><strong>Margem:</strong> ${item.margem || 0}%</p>
+        <p><strong>Risco:</strong> ${item.risco || '-'}</p>
+        <p><strong>Data:</strong> ${item.data || '-'}</p>
+        <p><strong>Usuário:</strong> ${item.usuarioNome || item.usuario || '-'}</p>
+        <div class="button-group" style="margin-top:20px">
+            <button class="btn btn-warning" onclick="editarItem(${idx})">✏️ Editar</button>
+            <button class="btn btn-danger" onclick="excluirItem(${idx})">🗑️ Excluir</button>
+            <button class="btn btn-secondary" onclick="fecharModal()">Fechar</button>
+        </div>`;
+    const modal = document.getElementById('modalEdicao');
+    if (modal) modal.classList.add('active');
+}
+
+function editarItem(idx) {
     const item = historico[idx];
     if (!item) return;
     
-    const idOriginal = item.id || item.firebaseId;
+    const idOriginal = item.id;
     indiceEditando = idx;
     
     console.log('✏️ Editando item:', { id: idOriginal, cliente: item.cliente, indice: idx });
-    mostrarToast(`✏️ Editando: ${item.cliente}`, 'warning');
+    mostrarToast(`✏️ Editando: ${item.cliente} - ID: ${idOriginal}`, 'warning');
     
     const clienteInput = document.getElementById('cliente');
     const segmentoSelect = document.getElementById('segmento');
@@ -1798,189 +1818,8 @@ function editarItem(idx) {
     showTab('input');
 }
 
-// ========== HISTÓRICO ==========
-function atualizarHistorico() {
-    if (!verificarSessaoAposLogin()) return;
-    
-    carregarPreferenciasPaginacao();
-    configurarPaginacao();
-    atualizarHistoricoComPaginacao();
-}
-
-function configurarPaginacao() {
-    const lista = document.getElementById('historico-lista');
-    if (!lista) return;
-    const card = document.querySelector('#historico .card');
-    if (!card) return;
-    
-    if (!document.getElementById('itensPorPagina')) {
-        const controle = document.createElement('div');
-        controle.className = 'itens-por-pagina';
-        controle.innerHTML = `<label>Itens por página:</label><select id="itensPorPagina" onchange="mudarItensPorPagina(this.value)"><option value="5">5</option><option value="10" selected>10</option><option value="20">20</option><option value="50">50</option></select>`;
-        card.insertBefore(controle, lista);
-    }
-    if (!document.getElementById('paginacao-container')) {
-        const div = document.createElement('div');
-        div.id = 'paginacao-container';
-        div.className = 'paginacao';
-        lista.parentNode.insertBefore(div, lista.nextSibling);
-    }
-}
-
-function mudarItensPorPagina(valor) { 
-    itensPorPagina = parseInt(valor); 
-    paginaAtual = 1; 
-    salvarPreferenciasPaginacao(); 
-    atualizarHistoricoComPaginacao(); 
-}
-
-function salvarPreferenciasPaginacao() { 
-    localStorage.setItem('mfbd_itens_por_pagina', itensPorPagina); 
-}
-
-function carregarPreferenciasPaginacao() { 
-    itensPorPagina = parseInt(localStorage.getItem('mfbd_itens_por_pagina')) || 10; 
-}
-
-function atualizarHistoricoComPaginacao() {
-    if (!verificarSessaoAposLogin()) return;
-    
-    const lista = document.getElementById('historico-lista');
-    if (!lista) return;
-    
-    if (!historico.length) { 
-        lista.innerHTML = '<p class="text-center" style="padding:40px">📭 Nenhuma simulação encontrada</p>'; 
-        const totalSpan = document.getElementById('total-simulacoes');
-        if (totalSpan) totalSpan.textContent = '0';
-        const pagContainer = document.getElementById('paginacao-container');
-        if (pagContainer) pagContainer.innerHTML = '';
-        return; 
-    }
-    
-    const filtro = document.getElementById('filtroCliente')?.value?.toLowerCase() || '';
-    const ordenar = document.getElementById('ordenarPor')?.value || 'data';
-    let filtrados = historico.filter(i => i.cliente?.toLowerCase().includes(filtro));
-    
-    if (ordenar === 'data') filtrados.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
-    else if (ordenar === 'cliente') filtrados.sort((a,b) => (a.cliente || '').localeCompare(b.cliente || ''));
-    else if (ordenar === 'preco') filtrados.sort((a,b) => (b.preco || 0) - (a.preco || 0));
-    else if (ordenar === 'margem') filtrados.sort((a,b) => parseFloat(b.margem || 0) - parseFloat(a.margem || 0));
-    
-    historicoPaginado = filtrados;
-    const total = filtrados.length;
-    const totalPag = Math.ceil(total / itensPorPagina);
-    if (paginaAtual > totalPag) paginaAtual = totalPag || 1;
-    const inicio = (paginaAtual - 1) * itensPorPagina;
-    const itensPagina = filtrados.slice(inicio, inicio + itensPorPagina);
-    
-    renderizarListaHistorico(itensPagina);
-    renderizarPaginacao(total, totalPag, inicio);
-    
-    const totalSpan = document.getElementById('total-simulacoes');
-    if (totalSpan) totalSpan.textContent = total;
-}
-
-function renderizarListaHistorico(itens) {
-    if (!verificarSessaoAposLogin()) return;
-    
-    const lista = document.getElementById('historico-lista');
-    if (!lista) return;
-    lista.innerHTML = '';
-    
-    itens.forEach(item => {
-        const idx = historico.findIndex(h => (h.id === item.id) || (h.firebaseId === item.id) || (h.firebaseId === item.firebaseId));
-        if (idx === -1) return;
-        const riscoClass = item.risco === 'alto' ? 'badge-danger' : item.risco === 'medio' ? 'badge-warning' : 'badge-success';
-        lista.innerHTML += `<div class="historico-item" onclick="abrirModalEdicao(${idx})">
-            <div class="historico-header">
-                <span class="historico-titulo">
-                    ${item.cliente || 'Sem nome'}
-                    <span style="font-size:10px; color:#64748b; margin-left:8px;">ID: ${(item.id || item.firebaseId || 'N/A').substring(0, 12)}...</span>
-                </span>
-                <div class="historico-acoes" onclick="event.stopPropagation()">
-                    <button onclick="editarItem(${idx})" title="Editar">✏️</button>
-                    <button onclick="excluirItem(${idx})" title="Excluir">🗑️</button>
-                </div>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px">
-                <div><small>Produto</small><br><strong>${item.produtoTexto || item.produto || '-'}</strong></div>
-                <div><small>Preço</small><br><strong>${formatarMoeda(item.preco)}</strong></div>
-                <div><small>Margem</small><br><strong>${item.margem || 0}%</strong></div>
-                <div><small>Risco</small><br><span class="badge ${riscoClass}">${item.risco || '-'}</span></div>
-            </div>
-            <div style="font-size:11px;color:#64748b;margin-top:8px">
-                📅 ${item.data || ''}
-                ${item.usuario ? ` 👤 ${item.usuario}` : ''}
-            </div>
-        </div>`;
-    });
-}
-
-function renderizarPaginacao(total, totalPag, inicio) {
-    const container = document.getElementById('paginacao-container');
-    if (!container || total <= itensPorPagina) { 
-        if(container) container.innerHTML = ''; 
-        return; 
-    }
-    let html = `<div class="paginacao-info">Mostrando ${inicio+1}-${Math.min(inicio+itensPorPagina, total)} de ${total} resultados</div>`;
-    html += `<div class="paginacao-controles">`;
-    html += `<button class="paginacao-btn" onclick="irParaPagina(1)" ${paginaAtual===1?'disabled':''}>⏮️ Primeira</button>`;
-    html += `<button class="paginacao-btn" onclick="irParaPagina(${paginaAtual-1})" ${paginaAtual===1?'disabled':''}>◀️ Anterior</button>`;
-    
-    for(let i=Math.max(1, paginaAtual-2); i<=Math.min(totalPag, paginaAtual+2); i++)
-        html += `<button class="paginacao-btn ${i===paginaAtual?'active':''}" onclick="irParaPagina(${i})">${i}</button>`;
-    
-    html += `<button class="paginacao-btn" onclick="irParaPagina(${paginaAtual+1})" ${paginaAtual===totalPag?'disabled':''}>Próxima ▶️</button>`;
-    html += `<button class="paginacao-btn" onclick="irParaPagina(${totalPag})" ${paginaAtual===totalPag?'disabled':''}>Última ⏭️</button>`;
-    html += `</div>`;
-    container.innerHTML = html;
-}
-
-function irParaPagina(pag) {
-    pag = parseInt(pag);
-    if (isNaN(pag)) return;
-    const total = Math.ceil(historicoPaginado.length / itensPorPagina);
-    if (pag < 1 || pag > total) return;
-    paginaAtual = pag;
-    atualizarHistoricoComPaginacao();
-}
-
-function abrirModalEdicao(idx) {
-    if (!verificarSessaoAposLogin()) {
-        mostrarToast('⚠️ Faça login primeiro!', 'warning');
-        return;
-    }
-    
-    const item = historico[idx];
-    if (!item) return;
-    const modalContent = document.getElementById('modal-conteudo');
-    if (!modalContent) return;
-    modalContent.innerHTML = `
-        <p><strong>ID:</strong> <code style="background:#f1f5f9;padding:4px 8px;border-radius:8px">${(item.id || item.firebaseId || 'N/A').substring(0, 16)}...</code></p>
-        <p><strong>Cliente:</strong> ${item.cliente || '-'}</p>
-        <p><strong>Produto:</strong> ${item.produtoTexto || item.produto || '-'}</p>
-        <p><strong>Modelo:</strong> ${item.cobrancaTexto || item.cobranca || '-'}</p>
-        <p><strong>Preço:</strong> ${formatarMoeda(item.preco)}</p>
-        <p><strong>Margem:</strong> ${item.margem || 0}%</p>
-        <p><strong>Risco:</strong> ${item.risco || '-'}</p>
-        <p><strong>Data:</strong> ${item.data || '-'}</p>
-        <p><strong>Usuário:</strong> ${item.usuarioNome || item.usuario || '-'}</p>
-        <div class="button-group" style="margin-top:20px">
-            <button class="btn btn-warning" onclick="editarItem(${idx})">✏️ Editar</button>
-            <button class="btn btn-danger" onclick="excluirItem(${idx})">🗑️ Excluir</button>
-            <button class="btn btn-secondary" onclick="fecharModal()">Fechar</button>
-        </div>`;
-    const modal = document.getElementById('modalEdicao');
-    if (modal) modal.classList.add('active');
-}
-
 function excluirItem(idx) { 
-    const idParaExcluir = historico[idx]?.id || historico[idx]?.firebaseId;
-    if (idParaExcluir) {
-        excluirItemFirebase(idParaExcluir, idx);
-    } else {
-        mostrarToast('❌ Erro: ID não encontrado para exclusão', 'error');
-    }
+    excluirItemFirebase(historico[idx].id, idx); 
 }
 
 function fecharModal() { 
@@ -1990,11 +1829,6 @@ function fecharModal() {
 
 // ========== EXPORTAÇÃO ==========
 function exportarExcel() {
-    if (!verificarSessaoAposLogin()) {
-        mostrarToast('⚠️ Faça login primeiro!', 'warning');
-        return;
-    }
-    
     if (!historico.length) { 
         mostrarToast('📭 Nenhum dado para exportar', 'warning'); 
         return; 
@@ -2037,7 +1871,7 @@ function exportarExcelOpcao(tipo) {
     
     const cabecalhos = ['ID', 'Data', 'Cliente', 'Produto', 'Preço (R$)', 'Margem (%)', 'Risco', 'Complexidade', 'Cobrança', 'Usuário'];
     const dados = dadosParaExportar.map(item => [
-        (item.id || item.firebaseId || ''), 
+        item.id || '', 
         item.data || '', 
         item.cliente || '', 
         item.produtoTexto || item.produto || '', 
@@ -2059,11 +1893,6 @@ function exportarExcelOpcao(tipo) {
 }
 
 function exportarPDF() {
-    if (!verificarSessaoAposLogin()) {
-        mostrarToast('⚠️ Faça login primeiro!', 'warning');
-        return;
-    }
-    
     if (!historico.length) { 
         mostrarToast('📭 Nenhum dado para exportar', 'warning'); 
         return; 
@@ -2145,7 +1974,7 @@ function exportarPDFOpcao(tipo) {
     
     dadosParaExportar.forEach(item => {
         conteudoHTML += `<tr>
-            <td>${(item.id || item.firebaseId || '-').substring(0, 16)}...</td>
+            <td>${item.id || '-'}</td>
             <td>${item.data || '-'}</td>
             <td>${item.cliente || '-'}</td>
             <td>${item.produtoTexto || item.produto || '-'}</td>
@@ -2193,7 +2022,6 @@ function showTab(tab) {
 }
 
 function inicializarGraficos() { 
-    if (!verificarSessaoAposLogin()) return;
     destruirGraficos(); 
     atualizarTodosGraficos(); 
 }
@@ -2208,8 +2036,6 @@ function destruirGraficos() {
 }
 
 function mudarPeriodoGraficos(p, e) {
-    if (!verificarSessaoAposLogin()) return;
-    
     periodoAtualGraficos = p;
     document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
     if(e?.target) e.target.classList.add('active');
@@ -2234,8 +2060,6 @@ function filtrarPorPeriodo(items, periodo) {
 }
 
 function atualizarDashboardSeAtivo() {
-    if (!verificarSessaoAposLogin()) return;
-    
     const dashboard = document.getElementById('dashboard');
     if (dashboard && dashboard.classList.contains('active')) {
         destruirGraficos();
@@ -2244,8 +2068,6 @@ function atualizarDashboardSeAtivo() {
 }
 
 function atualizarTodosGraficos() {
-    if (!verificarSessaoAposLogin()) return;
-    
     if (!historico.length) {
         mostrarGraficosVazios();
         return;
@@ -2555,30 +2377,48 @@ function criarGraficoTendenciaMargens(dados) {
     });
 }
 
+
+
+// Monitora quando o usuário tenta sair ou atualizar a página
+window.addEventListener('beforeunload', function(e) {
+    if (usuarioAtual) {
+        // Executa a função de logout que você já tem no script.js
+        fazerLogout(); 
+    }
+});
+
 // ========== INICIALIZAÇÃO ==========
 window.onload = function() {
-    console.log('🚀 MFBD 8.6 - Versão com Limpeza Total');
+    console.log('🚀 MFBD 8.0 - Versão com Firebase Otimizado');
     console.log('📅 Data/Hora:', new Date().toLocaleString('pt-BR'));
+    console.log('💾 Cache ativado - Redução de tráfego Firebase em até 70%');
     
-    // FORÇAR LOGOUT AO CARREGAR/ATUALIZAR A PÁGINA
-    logoutAoAtualizarPagina();
+    const sessaoAntes = localStorage.getItem('mfbd_sessao');
+    if (sessaoAntes) {
+        console.log('🔄 Página recarregada. Sessão existente:', JSON.parse(sessaoAntes).email);
+    }
     
     const statusDiv = document.getElementById('firebase-status');
     if (statusDiv) {
         if (typeof firebaseConectado !== 'undefined' && firebaseConectado && firebaseDatabase) {
-            statusDiv.innerHTML = '✅ Firebase conectado';
+            statusDiv.innerHTML = '✅ Firebase conectado com cache ativado!';
             statusDiv.style.background = '#dcfce7';
             statusDiv.style.color = '#166534';
+            console.log('✅ Firebase conectado com sistema de cache');
         } else {
-            statusDiv.innerHTML = '⚠️ Firebase offline - usando localStorage.';
+            statusDiv.innerHTML = '⚠️ Firebase offline - usando localStorage para persistência local.';
             statusDiv.style.background = '#fef3c7';
             statusDiv.style.color = '#92400e';
+            console.log('⚠️ Firebase offline, usando localStorage');
         }
     }
     
+    verificarSessao();
+    
     setTimeout(() => { 
-        if (document.querySelectorAll('.perfil-row').length === 0 && verificarSessaoAposLogin()) {
+        if (document.querySelectorAll('.perfil-row').length === 0) {
             adicionarPerfil();
+            console.log('✅ Perfil inicial adicionado');
         }
     }, 200);
     
@@ -2616,19 +2456,18 @@ window.onload = function() {
         if (event.target === modal) fecharModal();
     });
     
+    window.addEventListener('beforeunload', function(e) {
+        if (usuarioAtual) {
+            console.log('🔄 Página sendo recarregada. Usuário:', usuarioAtual.email);
+        }
+    });
+    
     atualizarTodosCustos();
     atualizarHistorico();
     
-    console.log('✅ Sistema MFBD 8.6 inicializado com sucesso!');
-    console.log('🎯 Limpeza total após salvar/editar ativa!');
-};
+    console.log('✅ Sistema MFBD 8.0 inicializado com sucesso!');
+    console.log(`📊 Histórico atual: ${historico.length} registros`);
+    console.log('🎯 Otimizações ativas: Cache Local | Listener Incremental | LimitToLast');
 
-// Adicionar animação de saída para toasts
-const styleSheet = document.createElement('style');
-styleSheet.textContent = `
-    @keyframes slideOutRight {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(100%); opacity: 0; }
-    }
-`;
-document.head.appendChild(styleSheet);
+    
+};
