@@ -1199,8 +1199,7 @@ function calcular() {
         mostrarToast('❌ Erro no cálculo: ' + e.message, 'error'); 
     }
 }
-// ========== SALVAR HISTÓRICO (OTIMIZADO - COM REDIRECIONAMENTO) ==========
-// ========== SALVAR HISTÓRICO (VERSÃO CORRIGIDA COM REDIRECIONAMENTO FORÇADO) ==========
+// ========== SALVAR HISTÓRICO (VERSÃO CORRIGIDA COM LIMPEZA COMPLETA) ==========
 async function salvarHistorico() {
     if (!window.ultimoResultado) { 
         mostrarToast('❌ Calcule um preço primeiro!', 'warning'); 
@@ -1247,26 +1246,27 @@ async function salvarHistorico() {
         const acao = isEditando ? 'atualizada' : 'salva';
         mostrarToast(`✅ Simulação ${acao} com sucesso!`, 'success');
         
-        // Limpeza
-        if (!isEditando) {
-            const clienteInput = document.getElementById('cliente');
-            const escopoInput = document.getElementById('escopo');
-            if (clienteInput) clienteInput.value = '';
-            if (escopoInput) escopoInput.value = '';
-        } else if (typeof limparFormularioCompleto === 'function') {
+        // ========== LIMPEZA COMPLETA DO FORMULÁRIO ==========
+        // Chamar a função que você já tem no sistema
+        if (typeof limparFormularioCompleto === 'function') {
             limparFormularioCompleto();
+        } else {
+            // Fallback caso a função não exista
+            limparFormularioSimples();
         }
         
+        // Resetar variáveis de estado
         indiceEditando = -1;
         window.ultimoResultado = null;
+        
+        // Forçar limpeza dos outputs manualmente
+        resetarOutputs();
         
         // Atualizar visualização
         atualizarHistorico();
         atualizarDashboardSeAtivo();
         
-        // ========== TENTATIVA DE REDIRECIONAMENTO (2 MÉTODOS) ==========
-        
-        // Método 1: Tentar encontrar o botão da aba pelo atributo data-tab
+        // Redirecionar para o histórico
         const btnTab = document.querySelector('.tab-btn[data-tab="historico"]') || 
                        document.querySelector('[onclick*="historico"]') ||
                        document.querySelector('.nav-link[href="#historico"]');
@@ -1274,15 +1274,9 @@ async function salvarHistorico() {
         if (btnTab) {
             btnTab.click();
             console.log('✅ Redirecionado via clique no botão da aba');
-        } else {
-            // Método 2: Se o seu sistema usa uma função global para trocar abas (comum no MFBD)
-            if (typeof showTab === 'function') {
-                showTab('historico');
-                console.log('✅ Redirecionado via função showTab()');
-            } else if (typeof mudarAba === 'function') {
-                mudarAba('historico');
-                console.log('✅ Redirecionado via função mudarAba()');
-            }
+        } else if (typeof showTab === 'function') {
+            showTab('historico');
+            console.log('✅ Redirecionado via função showTab()');
         }
         
     } catch(e) { 
@@ -1296,9 +1290,110 @@ async function salvarHistorico() {
     }
 }
 
+// Função auxiliar para limpeza simples (fallback)
+function limparFormularioSimples() {
+    console.log('🧹 Resetando formulário (fallback)...');
+    
+    // Limpar campos de texto
+    const clienteInput = document.getElementById('cliente');
+    const escopoInput = document.getElementById('escopo');
+    if (clienteInput) clienteInput.value = '';
+    if (escopoInput) escopoInput.value = '';
+    
+    // Resetar selects para valores padrão
+    const segmentoSelect = document.getElementById('segmento');
+    const tipoSelect = document.getElementById('tipo');
+    const riscoSelect = document.getElementById('risco');
+    const produtoSelect = document.getElementById('produto');
+    const complexidadeSelect = document.getElementById('complexidade');
+    const urgenciaSelect = document.getElementById('urgencia');
+    const aplicaCSSelect = document.getElementById('aplicaCS');
+    const parceiroSelect = document.getElementById('parceiro');
+    
+    if (segmentoSelect) segmentoSelect.value = 'tecnologia';
+    if (tipoSelect) tipoSelect.value = 'novo';
+    if (riscoSelect) riscoSelect.value = 'baixo';
+    if (produtoSelect) produtoSelect.value = 'consultoria';
+    if (complexidadeSelect) complexidadeSelect.value = 'media';
+    if (urgenciaSelect) urgenciaSelect.value = 'normal';
+    if (aplicaCSSelect) aplicaCSSelect.value = 'sim';
+    if (parceiroSelect) parceiroSelect.value = 'nao';
+    
+    // Resetar inputs numéricos
+    const entradaInput = document.getElementById('entrada');
+    const parcelasInput = document.getElementById('parcelas');
+    const descontoInput = document.getElementById('desconto');
+    const percParceiroInput = document.getElementById('percParceiro');
+    const percCSInput = document.getElementById('percCS');
+    const riscoEscopoInput = document.getElementById('riscoEscopo');
+    
+    if (entradaInput) entradaInput.value = '50';
+    if (parcelasInput) parcelasInput.value = '1';
+    if (descontoInput) descontoInput.value = '0';
+    if (percParceiroInput) percParceiroInput.value = '0';
+    if (percCSInput) percCSInput.value = '7.5';
+    if (riscoEscopoInput) riscoEscopoInput.value = '20';
+    
+    // Resetar radio buttons
+    const radioHora = document.querySelector('input[name="cobranca"][value="hora"]');
+    if (radioHora) {
+        radioHora.checked = true;
+        document.querySelectorAll('.radio-option').forEach(o => o.classList.remove('selected'));
+        const parentHora = radioHora.closest('.radio-option');
+        if (parentHora) parentHora.classList.add('selected');
+    }
+}
 
+// Função para resetar todos os outputs
+function resetarOutputs() {
+    console.log('🔄 Resetando outputs...');
+    
+    // Campos de preço
+    const precoFields = ['preco-piso', 'preco-alvo', 'preco-premium', 'output-custo', 
+                         'output-impostos', 'output-cs', 'output-margem-valor', 'output-margem-pct',
+                         'output-entrada', 'output-parcelas', 'output-total-juros'];
+    
+    precoFields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = 'R$ 0,00';
+    });
+    
+    // Campo de margem percentual
+    const margemPct = document.getElementById('output-margem-pct');
+    if (margemPct) margemPct.innerHTML = '0%';
+    
+    // Composição de custos
+    const composicaoFields = ['composicao-custo', 'composicao-buffer', 'composicao-impostos', 
+                              'composicao-cs', 'composicao-parceiro', 'composicao-base', 'composicao-margem'];
+    
+    composicaoFields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = 'R$ 0,00';
+    });
+    
+    // Totais
+    const totalMaoObra = document.getElementById('total-mao-obra');
+    const totalOverhead = document.getElementById('total-overhead');
+    const subtotalGeral = document.getElementById('subtotal-geral');
+    
+    if (totalMaoObra) totalMaoObra.innerHTML = 'R$ 0,00';
+    if (totalOverhead) totalOverhead.innerHTML = 'R$ 0,00';
+    if (subtotalGeral) subtotalGeral.innerHTML = 'R$ 0,00';
+    
+    // Tabela de cálculo
+    const corpoCalculo = document.getElementById('corpo-calculo');
+    if (corpoCalculo) {
+        corpoCalculo.innerHTML = '<tr><td colspan="6" class="text-center">Nenhum perfil adicionado ainda</td></tr>';
+    }
+    
+    // Alertas
+    const alertContainer = document.getElementById('alertas-container');
+    if (alertContainer) {
+        alertContainer.innerHTML = '<div class="alert alert-success">✅ Nenhum alerta identificado</div>';
+    }
+}
 
-// ========== FUNÇÃO AUXILIAR: LIMPAR FORMULÁRIO COMPLETO ==========
+// ========== FUNÇÃO AUXILIAR: LIMPAR FORMULÁRIO COMPLETO (ATUALIZADA) ==========
 function limparFormularioCompleto() {
     console.log('🧹 Resetando formulário completo...');
     
@@ -1351,7 +1446,7 @@ function limparFormularioCompleto() {
         if (parentHora) parentHora.classList.add('selected');
     }
     
-    // Resetar perfis (deixar apenas 1 perfil padrão)
+    // Resetar perfis (deixar apenas 1 perfil padrão Pleno com 40 horas)
     const container = document.getElementById('perfis-container');
     if (container) {
         container.innerHTML = '';
@@ -1377,42 +1472,8 @@ function limparFormularioCompleto() {
         atualizarCustoPrevisto(div);
     }
     
-    // Limpar outputs/results
-    const outputFields = ['preco-piso', 'preco-alvo', 'preco-premium', 'output-custo', 
-                          'output-impostos', 'output-cs', 'output-margem-valor', 'output-margem-pct',
-                          'output-entrada', 'output-parcelas', 'output-total-juros'];
-    outputFields.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.innerHTML = 'R$ 0,00';
-    });
-    
-    const margemPctEl = document.getElementById('output-margem-pct');
-    if (margemPctEl) margemPctEl.innerHTML = '0%';
-    
-    const composicaoFields = ['composicao-custo', 'composicao-buffer', 'composicao-impostos', 
-                              'composicao-cs', 'composicao-parceiro', 'composicao-base', 'composicao-margem'];
-    composicaoFields.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.innerHTML = 'R$ 0,00';
-    });
-    
-    const alertContainer = document.getElementById('alertas-container');
-    if (alertContainer) {
-        alertContainer.innerHTML = '<div class="alert alert-success">✅ Nenhum alerta identificado</div>';
-    }
-    
-    const corpoCalculo = document.getElementById('corpo-calculo');
-    if (corpoCalculo) {
-        corpoCalculo.innerHTML = '<tr><td colspan="6" class="text-center">Nenhum perfil adicionado ainda</td></tr>';
-    }
-    
-    const totalMaoObra = document.getElementById('total-mao-obra');
-    const totalOverhead = document.getElementById('total-overhead');
-    const subtotalGeral = document.getElementById('subtotal-geral');
-    
-    if (totalMaoObra) totalMaoObra.innerHTML = 'R$ 0,00';
-    if (totalOverhead) totalOverhead.innerHTML = 'R$ 0,00';
-    if (subtotalGeral) subtotalGeral.innerHTML = 'R$ 0,00';
+    // Resetar outputs
+    resetarOutputs();
     
     mostrarToast('🧹 Formulário resetado para novo cálculo', 'info');
 }
