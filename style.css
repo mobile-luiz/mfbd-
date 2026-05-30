@@ -8,7 +8,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 body {
-    background: linear-gradient(145deg, #EB8302 0%, #c46a00 100%);
+    background: #f5f7fb;
     min-height: 100vh;
     padding: 20px;
 }
@@ -16,9 +16,9 @@ body {
 .container {
     max-width: 1440px;
     margin: 0 auto;
-    background: rgba(255, 255, 255, 0.98);
+    background: #ffffff;
     border-radius: 40px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
     overflow: hidden;
 }
 
@@ -46,11 +46,11 @@ body {
 
 .tabs {
     display: flex;
-    background: #fff5f2;
+    background: #ffffff;
     padding: 0 24px;
     gap: 8px;
     overflow-x: auto;
-    border-bottom: 1px solid #ffded6;
+    border-bottom: 1px solid #eef2f6;
 }
 
 .tab {
@@ -59,7 +59,7 @@ body {
     border: none;
     cursor: pointer;
     font-weight: 600;
-    color: #d1583c;
+    color: #64748b;
     font-size: clamp(13px, 3.8vw, 15px);
     transition: all 0.3s;
     border-bottom: 2px solid transparent;
@@ -77,7 +77,7 @@ body {
 .tab-content {
     display: none;
     padding: 32px;
-    background: white;
+    background: #ffffff;
 }
 
 .tab-content.active {
@@ -132,17 +132,18 @@ h3 {
 }
 
 .card {
-    background: white;
+    background: #ffffff;
     border-radius: 24px;
     padding: 24px;
-    border: 1px solid #fee2da;
+    border: 1px solid #eef2f6;
     transition: all 0.3s;
-    box-shadow: 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
 }
 
 .card:hover {
-    border-color: #fdba9a;
+    border-color: #fed7aa;
     transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
 }
 
 .form-group {
@@ -162,17 +163,17 @@ label {
 input, select, textarea {
     width: 100%;
     padding: 14px 18px;
-    border: 1px solid #fee2da;
+    border: 1px solid #e2e8f0;
     border-radius: 16px;
     font-size: 14px;
-    background: #fffaf8;
+    background: #ffffff;
     transition: all 0.3s;
 }
 
 input:focus, select:focus, textarea:focus {
     outline: none;
     border-color: #EB8302;
-    background: white;
+    background: #ffffff;
     box-shadow: 0 0 0 4px rgba(235, 131, 2, 0.1);
 }
 
@@ -190,8 +191,8 @@ input:focus, select:focus, textarea:focus {
 }
 
 .radio-option {
-    background: #fffaf8;
-    border: 1px solid #fee2da;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
     border-radius: 40px;
     padding: 12px 24px;
     display: flex;
@@ -200,12 +201,12 @@ input:focus, select:focus, textarea:focus {
     cursor: pointer;
     transition: all 0.3s;
     font-weight: 500;
-    color: #d1583c;
+    color: #64748b;
 }
 
 .radio-option.selected {
     border-color: #EB8302;
-    background: #fff0eb;
+    background: #fff7ed;
     color: #c46a00;
 }
 
@@ -239,9 +240,13 @@ input:focus, select:focus, textarea:focus {
 }
 
 .btn-secondary {
-    background: #fff0eb;
-    color: #d1583c;
-    border: 1px solid #fee2da;
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+}
+
+.btn-secondary:hover {
+    background: #e2e8f0;
 }
 
 .btn-success {
@@ -260,11 +265,11 @@ input:focus, select:focus, textarea:focus {
 }
 
 .perfil-row {
-    background: white;
+    background: #f8fafc;
     border-radius: 20px;
     padding: 18px;
     margin-bottom: 16px;
-    border: 1px solid #fee2da;
+    border: 1px solid #eef2f6;
     display: grid;
     grid-template-columns: 1fr;
     gap: 14px;
@@ -282,7 +287,7 @@ input:focus, select:focus, textarea:focus {
     font-weight: 700;
     color: #EB8302;
     text-align: right;
-    background: #fff0eb;
+    background: #fff7ed;
     padding: 8px 12px;
     border-radius: 12px;
 }
@@ -317,20 +322,21 @@ input:focus, select:focus, textarea:focus {
 }
 
 .price-box {
-    background: linear-gradient(145deg, #fffaf8, #fff5f2);
+    background: linear-gradient(145deg, #ffffff, #f8fafc);
     border-radius: 32px;
     padding: 32px 20px;
     text-align: center;
-    border: 1px solid #fee2da;
+    border: 1px solid #eef2f6;
     transition: all 0.3s;
 }
 
 .price-box:hover {
     transform: translateY(-5px);
+    border-color: #fed7aa;
 }
 
 .price-box h4 {
-    color: #d1583c;
+    color: #EB8302;
     font-size: 14px;
     text-transform: uppercase;
     letter-spacing: 2px;
@@ -370,7 +376,7 @@ input:focus, select:focus, textarea:focus {
 }
 
 .alert-info {
-    background: #fef3f2;
+    background: #fff7ed;
     color: #c46a00;
     border-left-color: #EB8302;
 }
@@ -386,28 +392,28 @@ table {
     background: white;
     border-radius: 20px;
     overflow: hidden;
-    border: 1px solid #fee2da;
+    border: 1px solid #eef2f6;
 }
 
 th {
-    background: #fff5f2;
-    color: #d1583c;
+    background: #f8fafc;
+    color: #EB8302;
     padding: 16px 14px;
     font-weight: 600;
     font-size: 13px;
     text-align: left;
-    border-bottom: 2px solid #fee2da;
+    border-bottom: 2px solid #eef2f6;
 }
 
 td {
     padding: 14px 12px;
-    border-bottom: 1px solid #fee2da;
+    border-bottom: 1px solid #eef2f6;
     font-size: 13px;
     color: #475569;
 }
 
 tr:hover td {
-    background: #fffaf8;
+    background: #f8fafc;
 }
 
 .badge {
@@ -457,32 +463,36 @@ tr:hover td {
     align-items: center;
     margin-bottom: 24px;
     padding-bottom: 16px;
-    border-bottom: 2px solid #fee2da;
+    border-bottom: 2px solid #eef2f6;
 }
 
 .modal-close {
-    background: #fff0eb;
+    background: #f1f5f9;
     border: none;
     font-size: 28px;
     cursor: pointer;
     width: 40px;
     height: 40px;
     border-radius: 20px;
-    color: #d1583c;
+    color: #64748b;
+}
+
+.modal-close:hover {
+    background: #e2e8f0;
 }
 
 .historico-item {
-    background: white;
+    background: #ffffff;
     border-radius: 24px;
     padding: 24px;
     margin-bottom: 16px;
-    border: 1px solid #fee2da;
+    border: 1px solid #eef2f6;
     cursor: pointer;
     transition: all 0.3s;
 }
 
 .historico-item:hover {
-    border-color: #fdba9a;
+    border-color: #fed7aa;
     transform: translateX(6px);
 }
 
@@ -513,8 +523,12 @@ tr:hover td {
     border: none;
     cursor: pointer;
     font-size: 16px;
-    background: #fff0eb;
-    color: #d1583c;
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.historico-acoes button:hover {
+    background: #e2e8f0;
 }
 
 .button-group {
@@ -585,7 +599,7 @@ tr:hover td {
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(145deg, #EB8302 0%, #c46a00 100%);
+    background: #f5f7fb;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -599,7 +613,7 @@ tr:hover td {
     padding: 48px 40px;
     width: 100%;
     max-width: 460px;
-    box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.15);
 }
 
 .login-header {
@@ -615,7 +629,7 @@ tr:hover td {
 }
 
 .login-header p {
-    color: #d1583c;
+    color: #64748b;
     margin-top: 8px;
 }
 
@@ -663,7 +677,7 @@ tr:hover td {
     background: white;
     border-radius: 24px;
     padding: 24px;
-    border: 1px solid #fee2da;
+    border: 1px solid #eef2f6;
 }
 
 .chart-container {
@@ -687,10 +701,10 @@ tr:hover td {
 }
 
 .kpi-card {
-    background: linear-gradient(145deg, #fffaf8, #fff5f2);
+    background: linear-gradient(145deg, #ffffff, #f8fafc);
     border-radius: 20px;
     padding: 20px;
-    border: 1px solid #fee2da;
+    border: 1px solid #eef2f6;
 }
 
 .kpi-value {
@@ -707,13 +721,13 @@ tr:hover td {
 }
 
 .chart-btn {
-    background: #fff0eb;
-    border: 1px solid #fee2da;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
     padding: 8px 16px;
     border-radius: 30px;
     font-size: 13px;
     cursor: pointer;
-    color: #d1583c;
+    color: #64748b;
 }
 
 .chart-btn.active {
@@ -725,7 +739,7 @@ tr:hover td {
 .paginacao {
     margin-top: 24px;
     padding-top: 20px;
-    border-top: 2px solid #fee2da;
+    border-top: 2px solid #eef2f6;
 }
 
 .paginacao-controles {
@@ -740,11 +754,11 @@ tr:hover td {
     min-width: 40px;
     height: 40px;
     padding: 0 10px;
-    border: 1px solid #fee2da;
+    border: 1px solid #e2e8f0;
     background: white;
     border-radius: 12px;
     cursor: pointer;
-    color: #d1583c;
+    color: #64748b;
 }
 
 .paginacao-btn.active {
@@ -759,7 +773,7 @@ tr:hover td {
     gap: 12px;
     margin-bottom: 20px;
     padding: 12px 16px;
-    background: #fffaf8;
+    background: #f8fafc;
     border-radius: 16px;
 }
 
@@ -769,12 +783,12 @@ tr:hover td {
 }
 
 ::-webkit-scrollbar-track {
-    background: #fff0eb;
+    background: #f1f5f9;
     border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #fdba9a;
+    background: #cbd5e1;
     border-radius: 4px;
 }
 
