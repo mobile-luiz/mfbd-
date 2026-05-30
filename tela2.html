@@ -225,6 +225,53 @@
             padding: 12px 0;
             border-bottom: 1px solid #eef2f6;
         }
+        .forecast-section {
+            background: #ffffff;
+            border-radius: 24px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid #eef2f6;
+        }
+        .forecast-section h3 {
+            color: #EB8302;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .forecast-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+        .forecast-card {
+            background: #f8fafc;
+            border-radius: 20px;
+            padding: 20px;
+        }
+        .forecast-card h4 {
+            color: #1a1a2e;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+            border-bottom: 2px solid #eef2f6;
+            padding-bottom: 10px;
+        }
+        .forecast-table {
+            width: 100%;
+            font-size: 0.75rem;
+        }
+        .forecast-table th, .forecast-table td {
+            padding: 8px 4px;
+            text-align: left;
+            border-bottom: 1px solid #eef2f6;
+        }
+        .forecast-table th {
+            color: #EB8302;
+            font-weight: 600;
+        }
+        .trend-up { color: #10b981; }
+        .trend-down { color: #ef4444; }
         .charts-executive {
             display: flex;
             flex-wrap: wrap;
@@ -465,7 +512,6 @@
             font-size: 0.7rem;
             font-weight: bold;
         }
-        /* Modal de detalhes da proposta */
         .detail-modal-overlay {
             position: fixed;
             top: 0;
@@ -565,6 +611,7 @@
             .filter-bar { flex-direction: column; align-items: stretch; }
             .filter-stats { margin-left: 0; justify-content: space-between; }
             .detail-grid { grid-template-columns: 1fr; }
+            .forecast-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -572,7 +619,7 @@
 <div class="container">
     <div class="exec-header">
         <div class="title-section">
-            <h1><i class="fas fa-chart-line"></i>Executive </h1>
+            <h1><i class="fas fa-chart-line"></i>Executive Command Center</h1>
             <p>MFBD · Análise Multi-Gráficos | Segmentos, Alocação de Horas e Rentabilidade</p>
         </div>
         <div class="kpi-badge">
@@ -593,15 +640,51 @@
             <label><i class="far fa-calendar-alt"></i> Data Final</label>
             <input type="date" id="dataFinal" value="">
         </div>
-        <button class="btn-filter" id="aplicarFiltrosBtn"><i class="fas fa-filter"></i> Aplicar Filtro</button>
+        <div class="filter-group">
+            <label><i class="fas fa-chart-line"></i> Previsão (meses)</label>
+            <select id="forecastMonths">
+                <option value="3">3 meses</option>
+                <option value="6" selected>6 meses</option>
+                <option value="12">12 meses</option>
+            </select>
+        </div>
+        <button class="btn-filter" id="aplicarFiltrosBtn"><i class="fas fa-filter"></i> Aplicar</button>
         <button class="btn-filter btn-filter-secondary" id="limparFiltrosBtn"><i class="fas fa-undo-alt"></i> Limpar</button>
-        <div class="filter-stats" id="filterStats">
-            <span><i class="fas fa-chart-line"></i> Total: <span id="totalFiltrado">0</span> propostas</span>
+        <div class="filter-stats">
+            <span><i class="fas fa-chart-line"></i> Total: <strong id="totalFiltrado">0</strong> propostas</span>
         </div>
     </div>
 
     <div class="kpi-grid-exec" id="kpiExecArea"></div>
     <div class="insight-row" id="insightRow"></div>
+
+    <!-- Seção de Previsão -->
+    <div class="forecast-section">
+        <h3><i class="fas fa-chart-line"></i> 📈 Previsão Estratégica</h3>
+        <div class="forecast-grid">
+            <div class="forecast-card">
+                <h4><i class="fas fa-users"></i> Previsão de Clientes</h4>
+                <table class="forecast-table" id="forecastClientesTable">
+                    <thead><tr><th>Mês</th><th>Previsão</th><th>Variação</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div class="forecast-card">
+                <h4><i class="fas fa-dollar-sign"></i> Previsão de Receita</h4>
+                <table class="forecast-table" id="forecastReceitaTable">
+                    <thead><tr><th>Mês</th><th>Previsão</th><th>Variação</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div class="forecast-card">
+                <h4><i class="fas fa-chart-pie"></i> Métricas Projetadas</h4>
+                <table class="forecast-table" id="forecastMetricsTable">
+                    <thead><tr><th>Indicador</th><th>Atual</th><th>Projetado</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
     <div class="charts-executive">
         <div class="chart-panel"><h3><i class="fas fa-chart-simple"></i> Margem por Tipo de Cobrança</h3><div id="chartMargemExec" style="height: 280px;"></div></div>
@@ -609,7 +692,7 @@
         <div class="chart-panel"><h3><i class="fas fa-building"></i> Receita por Segmento</h3><div id="chartSegmento" style="height: 280px;"></div></div>
     </div>
     <div class="charts-executive">
-        <div class="chart-panel"><h3><i class="fas fa-chart-line"></i> Margem vs Complexidade</h3><div id="chartComplexidade" style="height: 280px;"></div></div>
+        <div class="chart-panel"><h3><i class="fas fa-chart-line"></i> Tendência de Receita</h3><div id="chartTendencia" style="height: 280px;"></div></div>
         <div class="chart-panel"><h3><i class="fas fa-clock"></i> Alocação de Horas por Perfil</h3><div id="chartHorasPerfil" style="height: 280px;"></div></div>
         <div class="chart-panel"><h3><i class="fas fa-chart-line"></i> Ticket Médio por Risco</h3><div id="chartRiscoTicket" style="height: 280px;"></div></div>
     </div>
@@ -699,60 +782,116 @@
         } catch(e) { console.warn("AI fallback ativo"); }
     }
 
+    function calcularPrevisao(proposals, months) {
+        if (!proposals.length) return { clientes: [], receitas: [], crescimento: 0 };
+        
+        const meses = {};
+        proposals.forEach(p => {
+            const date = new Date(p.timestamp);
+            const key = `${date.getFullYear()}-${date.getMonth()+1}`;
+            if (!meses[key]) meses[key] = { clientes: 0, receita: 0 };
+            meses[key].clientes++;
+            meses[key].receita += p.preco;
+        });
+        
+        const sortedMeses = Object.keys(meses).sort();
+        if (sortedMeses.length < 2) {
+            const avgClientes = proposals.length;
+            const avgReceita = proposals.reduce((s,p) => s + p.preco, 0);
+            const projClientes = Math.round(avgClientes * 1.1);
+            const projReceita = avgReceita * 1.1;
+            return {
+                clientes: Array(months).fill(projClientes),
+                receitas: Array(months).fill(projReceita),
+                crescimento: 10
+            };
+        }
+        
+        const ultimosMeses = sortedMeses.slice(-6);
+        const clientesVals = ultimosMeses.map(m => meses[m].clientes);
+        const receitaVals = ultimosMeses.map(m => meses[m].receita);
+        
+        const ultimoCliente = clientesVals[clientesVals.length-1] || clientesVals[0];
+        const ultimaReceita = receitaVals[receitaVals.length-1] || receitaVals[0];
+        
+        const previsaoClientes = [];
+        const previsaoReceitas = [];
+        let currentClientes = ultimoCliente;
+        let currentReceita = ultimaReceita;
+        
+        for (let i = 1; i <= months; i++) {
+            currentClientes = currentClientes * 1.05;
+            currentReceita = currentReceita * 1.04;
+            previsaoClientes.push(Math.round(currentClientes));
+            previsaoReceitas.push(currentReceita);
+        }
+        
+        const taxaCrescimento = ((previsaoReceitas[previsaoReceitas.length-1] / ultimaReceita) - 1) * 100;
+        
+        return { clientes: previsaoClientes, receitas: previsaoReceitas, crescimento: taxaCrescimento };
+    }
+
+    function atualizarPrevisao() {
+        const months = parseInt(document.getElementById('forecastMonths').value);
+        const previsao = calcularPrevisao(filteredProposals, months);
+        
+        const mesesNomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const hoje = new Date();
+        
+        const clientesBody = document.querySelector('#forecastClientesTable tbody');
+        clientesBody.innerHTML = '';
+        for (let i = 0; i < months; i++) {
+            const data = new Date(hoje);
+            data.setMonth(hoje.getMonth() + i + 1);
+            const mesNome = mesesNomes[data.getMonth()];
+            const ano = data.getFullYear();
+            const variacao = i > 0 ? ((previsao.clientes[i] - previsao.clientes[i-1]) / previsao.clientes[i-1] * 100).toFixed(1) : 0;
+            clientesBody.innerHTML += `<tr><td>${mesNome}/${ano}</td><td><strong>${previsao.clientes[i]}</strong></td><td class="${variacao >= 0 ? 'trend-up' : 'trend-down'}">${variacao >= 0 ? '+' : ''}${variacao}%</td></tr>`;
+        }
+        
+        const receitaBody = document.querySelector('#forecastReceitaTable tbody');
+        receitaBody.innerHTML = '';
+        for (let i = 0; i < months; i++) {
+            const data = new Date(hoje);
+            data.setMonth(hoje.getMonth() + i + 1);
+            const mesNome = mesesNomes[data.getMonth()];
+            const ano = data.getFullYear();
+            const variacao = i > 0 ? ((previsao.receitas[i] - previsao.receitas[i-1]) / previsao.receitas[i-1] * 100).toFixed(1) : 0;
+            receitaBody.innerHTML += `<tr><td>${mesNome}/${ano}</td><td><strong>${formatMoney(previsao.receitas[i])}</strong></td><td class="${variacao >= 0 ? 'trend-up' : 'trend-down'}">${variacao >= 0 ? '+' : ''}${variacao}%</td></tr>`;
+        }
+        
+        const metricsBody = document.querySelector('#forecastMetricsTable tbody');
+        const receitaAtual = filteredProposals.reduce((s,p) => s + p.preco, 0);
+        const margemAtual = filteredProposals.length ? filteredProposals.reduce((s,p) => s + p.margemPct, 0) / filteredProposals.length : 0;
+        const receitaProj = previsao.receitas[previsao.receitas.length-1];
+        metricsBody.innerHTML = `
+            <tr><td>Receita Total</td><td>${formatMoney(receitaAtual)}</td><td class="trend-up">${formatMoney(receitaProj)} (+${previsao.crescimento.toFixed(1)}%)</td></tr>
+            <tr><td>Margem Média</td><td>${margemAtual.toFixed(1)}%</td><td class="trend-up">${(margemAtual * 1.05).toFixed(1)}% (meta)</td></tr>
+            <tr><td>Ticket Médio</td><td>${formatMoney(receitaAtual / (filteredProposals.length || 1))}</td><td class="trend-up">${formatMoney((receitaProj / (previsao.clientes[previsao.clientes.length-1] || 1)))}</td></tr>
+        `;
+    }
+
     function getBusinessAnalytics() {
         if (!filteredProposals.length) return null;
-        
         const totalRevenue = filteredProposals.reduce((s,p) => s + p.preco, 0);
-        const avgMargin = filteredProposals.reduce((s,p) => s + p.margemPct, 0) / filteredProposals.length;
         const weightedMargin = filteredProposals.reduce((acc,p) => acc + (p.margemPct * p.preco), 0) / totalRevenue;
-        
         const marginBySegment = {};
-        const marginByType = {};
-        const riskByComplexity = { baixa: 0, media: 0, alta: 0 };
-        let highRiskCount = 0, lowMarginCount = 0;
-        
         filteredProposals.forEach(p => {
             if (!marginBySegment[p.segmento]) marginBySegment[p.segmento] = { sum: 0, count: 0 };
             marginBySegment[p.segmento].sum += p.margemPct;
             marginBySegment[p.segmento].count++;
-            
-            if (!marginByType[p.cobrancaTexto]) marginByType[p.cobrancaTexto] = { sum: 0, count: 0 };
-            marginByType[p.cobrancaTexto].sum += p.margemPct;
-            marginByType[p.cobrancaTexto].count++;
-            
-            if (p.riscoEscopo > 25) highRiskCount++;
-            if (p.margemPct < 35) lowMarginCount++;
-            
-            if (riskByComplexity[p.complexidade] !== undefined) {
-                riskByComplexity[p.complexidade] += p.riscoEscopo;
-            }
         });
-        
         const segmentMargins = Object.entries(marginBySegment).map(([seg, data]) => ({ segment: seg, margin: data.sum / data.count }));
         segmentMargins.sort((a,b) => b.margin - a.margin);
-        
-        const typeMargins = Object.entries(marginByType).map(([type, data]) => ({ type, margin: data.sum / data.count }));
-        
         return {
             totalProposals: filteredProposals.length,
-            totalRevenue,
-            avgMargin,
-            weightedMargin,
-            topSegment: segmentMargins[0],
-            worstSegment: segmentMargins[segmentMargins.length - 1],
-            bestPricingType: typeMargins.sort((a,b) => b.margin - a.margin)[0],
-            highRiskCount,
-            lowMarginCount,
-            riskByComplexity,
-            totalHours: filteredProposals.reduce((s,p) => {
-                return s + Object.values(p.horasPorPerfil || {}).reduce((a,b) => a + b, 0);
-            }, 0)
+            totalRevenue, weightedMargin,
+            topSegment: segmentMargins[0], worstSegment: segmentMargins[segmentMargins.length-1],
+            highRiskCount: filteredProposals.filter(p => p.riscoEscopo > 25).length
         };
     }
 
-    // Função para mostrar modal com TODOS os detalhes da proposta
     function showPropostaDetalhes(prop) {
-        // Formatar horas por perfil
         let horasHtml = '';
         if (prop.detalhamentoCalculo && prop.detalhamentoCalculo.length > 0) {
             prop.detalhamentoCalculo.forEach(d => {
@@ -766,7 +905,6 @@
             horasHtml = '<li>Nenhum detalhamento de horas disponível</li>';
         }
 
-        // Formatar condições financeiras
         const entrada = prop.entrada || 0;
         const parcelas = prop.parcelas || 1;
         const desconto = prop.desconto || 0;
@@ -803,9 +941,7 @@
                     
                     <div class="detail-section">
                         <h4><i class="fas fa-users"></i> Equipe e Esforço</h4>
-                        <ul class="perfis-list">
-                            ${horasHtml}
-                        </ul>
+                        <ul class="perfis-list">${horasHtml}</ul>
                         <div class="detail-item" style="margin-top: 10px;">
                             <span class="detail-label">Buffer de risco:</span>
                             <span class="detail-value">${prop.riscoEscopo || 20}%</span>
@@ -860,13 +996,11 @@
         div.innerHTML = modalHtml;
         document.body.appendChild(div);
         
-        // Armazenar função no escopo global para fechar
         window.fecharModalDetalhes = function() {
             const modal = document.getElementById('detalhesModalOverlay');
             if (modal) modal.remove();
         };
         
-        // Fechar ao clicar no overlay
         const overlay = document.getElementById('detalhesModalOverlay');
         if (overlay) {
             overlay.addEventListener('click', (e) => {
@@ -877,7 +1011,6 @@
 
     async function askAI(question) {
         const messagesDiv = document.getElementById('aiMessages');
-        
         const userMsgDiv = document.createElement('div');
         userMsgDiv.className = 'message user';
         userMsgDiv.innerHTML = `<div class="message-bubble">${escapeHtml(question)}</div>`;
@@ -895,53 +1028,19 @@
         const analytics = getBusinessAnalytics();
         
         let mappedQuestion = question;
-        if (question === "1") mappedQuestion = "Análise de rentabilidade por segmento - quero saber quais segmentos estão com melhor e pior margem, e como posso melhorar";
-        else if (question === "2") mappedQuestion = "Identificação de riscos operacionais - quero saber onde estão os maiores riscos e como mitigá-los";
-        else if (question === "3") mappedQuestion = "Otimizações de preço - quero recomendações práticas para aumentar margens e otimizar precificação";
-        else if (question === "4") mappedQuestion = "Previsão de tendências de margem - quero entender para onde o negócio está caminhando";
-        else if (question === "5") mappedQuestion = "Ajustes de alocação - quero otimizar a alocação de horas e recursos por perfil";
+        if (question === "1") mappedQuestion = "Análise de rentabilidade por segmento";
+        else if (question === "2") mappedQuestion = "Identificação de riscos operacionais";
+        else if (question === "3") mappedQuestion = "Otimizações de preço";
+        else if (question === "4") mappedQuestion = "Previsão de tendências de margem";
+        else if (question === "5") mappedQuestion = "Ajustes de alocação";
         
         if (generativeAI && filteredProposals.length) {
-            const systemPrompt = `Você é uma Conselheira Estratégica sênior especializada em precificação, rentabilidade e eficiência operacional para escritórios de advocacia e consultorias. 
-            
-DADOS ATUAIS DO NEGÓCIO:
-- Total de propostas: ${analytics.totalProposals}
-- Receita total: ${formatMoney(analytics.totalRevenue)}
-- Margem média ponderada: ${analytics.weightedMargin.toFixed(1)}%
-- Margem média simples: ${analytics.avgMargin.toFixed(1)}%
-- Segmento com maior margem: ${analytics.topSegment?.segment} (${analytics.topSegment?.margin.toFixed(1)}%)
-- Segmento com menor margem: ${analytics.worstSegment?.segment} (${analytics.worstSegment?.margin.toFixed(1)}%)
-- Tipo de cobrança mais rentável: ${analytics.bestPricingType?.type} (${analytics.bestPricingType?.margin.toFixed(1)}%)
-- Propostas com alto risco (>25%): ${analytics.highRiskCount}
-- Propostas com margem baixa (<35%): ${analytics.lowMarginCount}
-- Total de horas alocadas: ${analytics.totalHours}
-
-HISTÓRICO DA CONVERSA:
-${conversationHistory.slice(-3).map(m => `${m.role === 'user' ? 'Usuário' : 'Assistente'}: ${m.content}`).join('\n')}
-
-REGRAS:
-1. Seja direta, prática e orientada a ação
-2. Use dados específicos do negócio nas respostas
-3. Ofereça recomendações concretas e acionáveis
-4. Seja proativa - identifique problemas não perguntados
-5. Use linguagem de negócios, mas clara
-6. Máximo 5 frases para respostas simples, até 8 para análises complexas
-7. Sempre mostre números quando possível
-
-PERGUNTA DO USUÁRIO: ${mappedQuestion}
-
-RESPOSTA:`;
-            
+            const systemPrompt = `Você é uma Conselheira Estratégica. DADOS: ${analytics.totalProposals} propostas, receita ${formatMoney(analytics.totalRevenue)}, margem ${analytics.weightedMargin?.toFixed(1)}%. Pergunta: ${mappedQuestion}. Responda prática e direta.`;
             try {
                 const result = await generativeAI.generateContent(systemPrompt);
                 answer = result.response.text();
-            } catch(e) { 
-                console.error("AI error:", e);
-                answer = getIntelligentFallback(mappedQuestion, analytics);
-            }
-        } else {
-            answer = getIntelligentFallback(mappedQuestion, analytics);
-        }
+            } catch(e) { answer = getIntelligentFallback(mappedQuestion, analytics); }
+        } else { answer = getIntelligentFallback(mappedQuestion, analytics); }
         
         messagesDiv.removeChild(typingDiv);
         const aiMsgDiv = document.createElement('div');
@@ -956,77 +1055,32 @@ RESPOSTA:`;
     
     function getIntelligentFallback(question, analytics) {
         const q = question.toLowerCase();
-        
         if (!analytics || analytics.totalProposals === 0) {
-            return "📭 Ainda não há dados suficientes para uma análise completa. Cadastre algumas propostas no sistema principal para que eu possa fornecer insights estratégicos personalizados.";
+            return "📭 Ainda não há dados suficientes. Cadastre propostas no sistema principal.";
         }
-        
-        if (q.includes('rentabilidade') || q.includes('segmento')) {
-            return `📊 **ANÁLISE DE RENTABILIDADE POR SEGMENTO**
-
-🏆 **Segmento Mais Rentável**: ${analytics.topSegment?.segment}
-   • Margem: ${analytics.topSegment?.margin.toFixed(1)}%
-
-⚠️ **Segmento com Menor Margem**: ${analytics.worstSegment?.segment}
-   • Margem: ${analytics.worstSegment?.margin.toFixed(1)}%
-
-💡 **Recomendações**:
-1. Aplique a estratégia do segmento ${analytics.topSegment?.segment} no ${analytics.worstSegment?.segment}
-2. Revise custos alocados para este segmento
-3. Considere aumento de preços de 10-15%`;
+        if (q.includes('rentabilidade') || q.includes('segmento') || question === "Análise de rentabilidade por segmento") {
+            return `📊 **ANÁLISE DE RENTABILIDADE**: Melhor segmento: ${analytics.topSegment?.segment} (${analytics.topSegment?.margin.toFixed(1)}%). Pior: ${analytics.worstSegment?.segment} (${analytics.worstSegment?.margin.toFixed(1)}%). Recomendo revisar precificação no pior segmento.`;
         }
-        
         if (q.includes('risco')) {
-            if (analytics.highRiskCount > 0) {
-                return `⚠️ **DIAGNÓSTICO DE RISCOS**: ${analytics.highRiskCount} propostas com alto risco.
-
-🛡️ **Mitigação**: Aumentar buffer para 35%, revisar contratos, alocar sócio sênior.`;
-            }
-            return `✅ Perfil de risco saudável. Continue monitorando projetos complexos.`;
+            return `⚠️ **RISCOS**: ${analytics.highRiskCount} propostas com alto risco. Mitigue com buffer de 35% e revisão de contratos.`;
         }
-        
         if (q.includes('preço') || q.includes('otimização')) {
-            return `💰 **OTIMIZAÇÃO DE PREÇO**: Margem atual ${analytics.weightedMargin.toFixed(1)}%.
-
-🎯 **Ações**: Priorize modelo ${analytics.bestPricingType?.type}, revise segmento ${analytics.worstSegment?.segment}, aumente preços 10-15%.`;
+            return `💰 **OTIMIZAÇÃO**: Margem atual ${analytics.weightedMargin?.toFixed(1)}%. Foque no modelo mais rentável e aumente preços 10-15% no segmento ${analytics.worstSegment?.segment}.`;
         }
-        
         if (q.includes('tendência')) {
-            return `🔮 **TENDÊNCIAS**: Cenário otimista com ajustes pode elevar margem para ${Math.min(65, analytics.weightedMargin + 12).toFixed(1)}% em 90 dias.`;
+            return `🔮 **TENDÊNCIAS**: Com ajustes, margem pode atingir ${Math.min(65, (analytics.weightedMargin || 0) + 12).toFixed(1)}% em 90 dias.`;
         }
-        
         if (q.includes('alocação')) {
-            return `⚙️ **EFICIÊNCIA**: Potencial de redução de 12-15% no custo redistribuindo horas de Sócio para perfis Pleno/Júnior.`;
+            return `⚙️ **ALOCAÇÃO**: Redistribua horas de Sócio para perfis Pleno/Júnior, potencial de redução de 12-15% no custo.`;
         }
-        
-        if (q.includes('análise completa') || q.includes('full')) {
-            return `📊 **ANÁLISE COMPLETA**
-
-• Receita: ${formatMoney(analytics.totalRevenue)}
-• Margem: ${analytics.weightedMargin.toFixed(1)}%
-• ${analytics.totalProposals} propostas
-• Melhor segmento: ${analytics.topSegment?.segment}
-• ${analytics.highRiskCount} projetos de alto risco
-
-Digite 1, 2, 3, 4 ou 5 para detalhes específicos.`;
-        }
-        
-        return `📊 Digite o número da opção desejada:
-
-1️⃣ Rentabilidade por segmento
-2️⃣ Riscos operacionais
-3️⃣ Otimização de preço
-4️⃣ Tendências de margem
-5️⃣ Ajustes de alocação`;
+        return `📊 Digite 1 (Rentabilidade), 2 (Riscos), 3 (Otimização), 4 (Tendências) ou 5 (Alocação).`;
     }
 
     function aplicarFiltros() {
         const dataInicialStr = document.getElementById('dataInicial').value;
         const dataFinalStr = document.getElementById('dataFinal').value;
-        
         const dataInicial = dataInicialStr ? new Date(dataInicialStr) : null;
         const dataFinal = dataFinalStr ? new Date(dataFinalStr) : null;
-        
         if (dataFinal) dataFinal.setHours(23, 59, 59, 999);
         
         filteredProposals = allProposals.filter(prop => {
@@ -1037,9 +1091,8 @@ Digite 1, 2, 3, 4 ou 5 para detalhes específicos.`;
         });
         
         document.getElementById('totalFiltrado').innerText = filteredProposals.length;
-        document.getElementById('filterStats').innerHTML = `<span><i class="fas fa-chart-line"></i> Total: ${filteredProposals.length} propostas</span>`;
-        
         renderFilteredDashboard();
+        atualizarPrevisao();
     }
     
     function limparFiltros() {
@@ -1047,8 +1100,8 @@ Digite 1, 2, 3, 4 ou 5 para detalhes específicos.`;
         document.getElementById('dataFinal').value = '';
         filteredProposals = [...allProposals];
         document.getElementById('totalFiltrado').innerText = filteredProposals.length;
-        document.getElementById('filterStats').innerHTML = `<span><i class="fas fa-chart-line"></i> Total: ${filteredProposals.length} propostas</span>`;
         renderFilteredDashboard();
+        atualizarPrevisao();
     }
 
     async function loadData() {
@@ -1061,9 +1114,7 @@ Digite 1, 2, 3, 4 ou 5 para detalhes específicos.`;
                 const riscoEscopo = p.riscoEscopo ? parseFloat(p.riscoEscopo) : (p.risco === 'alto' ? 30 : (p.risco === 'medio' ? 20 : 10));
                 let horasPorPerfil = {};
                 let detalhamentoCalculo = p.detalhamentoCalculo || [];
-                if (detalhamentoCalculo.length === 0 && p.perfis) {
-                    detalhamentoCalculo = p.perfis;
-                }
+                if (detalhamentoCalculo.length === 0 && p.perfis) detalhamentoCalculo = p.perfis;
                 if (detalhamentoCalculo && Array.isArray(detalhamentoCalculo)) {
                     detalhamentoCalculo.forEach(item => {
                         const perfil = item.perfil || 'outro';
@@ -1091,7 +1142,7 @@ Digite 1, 2, 3, 4 ou 5 para detalhes específicos.`;
                     custoTotal: p.custoTotal || p.custoBase || 0,
                     margemValor: p.margemValor || 0,
                     timestamp: p.timestamp || Date.now(),
-                    data: p.data || new Date(p.timestamp).toLocaleString(),
+                    data: p.data || new Date(p.timestamp).toLocaleDateString(),
                     id: p.id || p.timestamp
                 };
             }).sort((a,b) => (b.timestamp||0) - (a.timestamp||0));
@@ -1099,28 +1150,17 @@ Digite 1, 2, 3, 4 ou 5 para detalhes específicos.`;
             filteredProposals = [...allProposals];
             document.getElementById('totalFiltrado').innerText = filteredProposals.length;
             renderFilteredDashboard();
+            atualizarPrevisao();
         } catch(e) { console.error(e); }
     }
 
     function renderFilteredDashboard() {
         if(!filteredProposals.length) {
             document.getElementById('kpiExecArea').innerHTML = '<div class="card-exec">Nenhuma proposta encontrada</div>';
-            document.getElementById('dataStatus').innerHTML = `${filteredProposals.length} propostas`;
+            document.getElementById('dataStatus').innerHTML = '0 propostas';
             document.getElementById('insightRow').innerHTML = '';
-            google.charts.load('current', { packages: ['corechart'] });
-            google.charts.setOnLoadCallback(() => {
-                const emptyData = [['', '']];
-                const charts = ['chartMargemExec', 'chartReceitaProduto', 'chartSegmento', 'chartComplexidade', 'chartHorasPerfil', 'chartRiscoTicket'];
-                charts.forEach(id => {
-                    if(document.getElementById(id)) {
-                        new google.visualization.ColumnChart(document.getElementById(id)).draw(google.visualization.arrayToDataTable(emptyData), {});
-                    }
-                });
-            });
-            renderFilteredTable();
             return;
         }
-        
         const totalRevenue = filteredProposals.reduce((s,p) => s + p.preco, 0);
         const avgTicket = totalRevenue / filteredProposals.length;
         const weightedMargin = filteredProposals.reduce((acc,p) => acc + (p.margemPct * p.preco), 0) / totalRevenue;
@@ -1136,26 +1176,17 @@ Digite 1, 2, 3, 4 ou 5 para detalhes específicos.`;
         const segRevenue = new Map();
         filteredProposals.forEach(p => segRevenue.set(p.segmento, (segRevenue.get(p.segmento)||0) + p.preco));
         const topSeg = [...segRevenue.entries()].sort((a,b)=>b[1]-a[1])[0];
-        const complexMargins = { baixa:0, media:0, alta:0, count:{ baixa:0, media:0, alta:0 } };
-        filteredProposals.forEach(p => {
-            let comp = p.complexidade;
-            if(complexMargins[comp] !== undefined) {
-                complexMargins[comp] += p.margemPct;
-                complexMargins.count[comp]++;
-            }
-        });
-        const avgCompMarg = (comp) => complexMargins.count[comp] ? (complexMargins[comp]/complexMargins.count[comp]).toFixed(1) : 0;
         document.getElementById('insightRow').innerHTML = `
-            <div class="insight-card"><h4><i class="fas fa-chart-pie"></i> TOP SEGMENTO</h4><ul class="metric-list"><li><span>💰 Maior receita:</span><strong>${topSeg?.[0]}</strong> (${formatMoney(topSeg?.[1] || 0)})</li><li><span>📈 Margem média por complexidade:</span> Baixa: ${avgCompMarg('baixa')}% | Média: ${avgCompMarg('media')}% | Alta: ${avgCompMarg('alta')}%</li></ul></div>
-            <div class="insight-card"><h4><i class="fas fa-clock"></i> EFICIÊNCIA DE ALOCAÇÃO</h4><ul class="metric-list"><li><span>🧠 Propostas com Sócio:</span> ${filteredProposals.filter(p => p.horasPorPerfil?.Sócio).length}</li><li><span>⚙️ Custo médio de mão de obra:</span> ${formatMoney(filteredProposals.reduce((s,p)=>s+(p.custoTotal||0),0)/filteredProposals.length)}</li></ul></div>
+            <div class="insight-card"><h4><i class="fas fa-chart-pie"></i> TOP SEGMENTO</h4><ul class="metric-list"><li><span>💰 Maior receita:</span><strong>${topSeg?.[0]}</strong> (${formatMoney(topSeg?.[1] || 0)})</li><li><span>📈 Propostas:</span><strong>${filteredProposals.length}</strong></li></ul></div>
+            <div class="insight-card"><h4><i class="fas fa-clock"></i> EFICIÊNCIA</h4><ul class="metric-list"><li><span>🧠 Propostas com Sócio:</span> ${filteredProposals.filter(p => p.horasPorPerfil?.Sócio).length}</li><li><span>⚙️ Ticket médio:</span> ${formatMoney(avgTicket)}</li></ul></div>
         `;
 
-        drawFilteredCharts();
-        renderFilteredTable();
+        drawCharts();
+        renderTable();
         document.getElementById('dataStatus').innerHTML = `${filteredProposals.length} propostas · IA Estratégica Ativa`;
     }
 
-    function drawFilteredCharts() {
+    function drawCharts() {
         google.charts.load('current', { packages: ['corechart'] });
         google.charts.setOnLoadCallback(() => {
             if(!filteredProposals.length) return;
@@ -1183,12 +1214,6 @@ Digite 1, 2, 3, 4 ou 5 para detalhes específicos.`;
             for(let [seg, val] of revSeg.entries()) segData.push([seg, val]);
             new google.visualization.BarChart(document.getElementById('chartSegmento')).draw(google.visualization.arrayToDataTable(segData), { colors: ['#EB8302'], hAxis: { format: 'currency' } });
 
-            const compMap = { baixa:0, media:0, alta:0, count:{ baixa:0, media:0, alta:0 } };
-            filteredProposals.forEach(p => { let c = p.complexidade; if(compMap[c]!==undefined) { compMap[c] += p.margemPct; compMap.count[c]++; } });
-            const compData = [['Complexidade', 'Margem Média (%)']];
-            for(let c of ['baixa','media','alta']) if(compMap.count[c]) compData.push([c.toUpperCase(), compMap[c]/compMap.count[c]]);
-            new google.visualization.ColumnChart(document.getElementById('chartComplexidade')).draw(google.visualization.arrayToDataTable(compData), { colors: ['#EB8302'], vAxis: { format: '#\'%\'', viewWindow: { min: 0 } } });
-
             const horasPerfil = { 'Sócio':0, 'Pleno':0, 'Júnior':0, 'Senior':0, 'Coordenador':0 };
             filteredProposals.forEach(p => {
                 if(p.horasPorPerfil) {
@@ -1207,21 +1232,26 @@ Digite 1, 2, 3, 4 ou 5 para detalhes específicos.`;
             for(let [perfil, horas] of Object.entries(horasPerfil)) if(horas>0) horaData.push([perfil, horas]);
             new google.visualization.PieChart(document.getElementById('chartHorasPerfil')).draw(google.visualization.arrayToDataTable(horaData), { colors: ['#EB8302','#10B981','#EC4899','#8B5CF6','#06B6D4'] });
 
-            const riskGroups = { 'Baixo Risco':{sum:0,count:0}, 'Médio Risco':{sum:0,count:0}, 'Alto Risco':{sum:0,count:0} };
+            // Tendência de receita por mês
+            const meses = {};
+            filteredProposals.forEach(p => { const d = new Date(p.timestamp); const key = `${d.getMonth()+1}/${d.getFullYear()}`; meses[key] = (meses[key]||0) + p.preco; });
+            const trendData = [['Mês', 'Receita']]; Object.entries(meses).sort().forEach(([k,v]) => trendData.push([k, v]));
+            new google.visualization.LineChart(document.getElementById('chartTendencia')).draw(google.visualization.arrayToDataTable(trendData), { colors: ['#EB8302'], curveType: 'function', vAxis: { format: 'currency' } });
+
+            const riskGroups = { 'Baixo Risco':0, 'Médio Risco':0, 'Alto Risco':0 };
             filteredProposals.forEach(p => {
-                if(p.riscoEscopo <= 15) { riskGroups['Baixo Risco'].sum += p.preco; riskGroups['Baixo Risco'].count++; }
-                else if(p.riscoEscopo <= 25) { riskGroups['Médio Risco'].sum += p.preco; riskGroups['Médio Risco'].count++; }
-                else { riskGroups['Alto Risco'].sum += p.preco; riskGroups['Alto Risco'].count++; }
+                if(p.riscoEscopo <= 15) riskGroups['Baixo Risco'] += p.preco;
+                else if(p.riscoEscopo <= 25) riskGroups['Médio Risco'] += p.preco;
+                else riskGroups['Alto Risco'] += p.preco;
             });
-            const riskData = [['Categoria de Risco', 'Ticket Médio (R$)']];
-            for(let [cat, vals] of Object.entries(riskGroups)) if(vals.count) riskData.push([cat, vals.sum/vals.count]);
+            const riskData = [['Categoria', 'Receita']]; Object.entries(riskGroups).forEach(([k,v]) => v>0 && riskData.push([k, v]));
             new google.visualization.BarChart(document.getElementById('chartRiscoTicket')).draw(google.visualization.arrayToDataTable(riskData), { colors: ['#EB8302'], hAxis: { format: 'currency' } });
         });
     }
 
-    function renderFilteredTable() {
+    function renderTable() {
         const tbody = document.getElementById('tableExecBody');
-        if(!filteredProposals.length) { tbody.innerHTML = '<tr><td colspan="7">Nenhuma proposta encontrada</td></tr>'; return; }
+        if(!filteredProposals.length) { tbody.innerHTML = '<tr><td colspan="7">Nenhuma proposta encontrada</td><tr>'; return; }
         let html = '';
         filteredProposals.forEach((p, idx) => {
             const score = (p.margemPct * 0.6) - (p.riscoEscopo * 0.4);
@@ -1233,12 +1263,11 @@ Digite 1, 2, 3, 4 ou 5 para detalhes específicos.`;
                             <td>${p.margemPct.toFixed(1)}%</td>
                             <td>${escapeHtml(p.segmento)}</td>
                             <td>${scoreLabel}</td>
-                            <td>${p.data.substring(0,10)}</td>
+                            <td>${p.data}</td>
                         </tr>`;
         });
         tbody.innerHTML = html;
         
-        // Adicionar evento de clique para mostrar modal com TODOS os detalhes
         document.querySelectorAll('.row-click').forEach(row => {
             row.addEventListener('click', (e) => {
                 const idx = parseInt(row.getAttribute('data-idx'));
@@ -1251,22 +1280,46 @@ Digite 1, 2, 3, 4 ou 5 para detalhes específicos.`;
 
     function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
 
-    async function exportToPDF() {
-        const btn = document.getElementById('exportPdfBtn');
-        btn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> PDF...';
-        btn.disabled = true;
-        try {
-            const element = document.querySelector('.container');
-            const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#ffffff' });
-            const { jsPDF } = window.jspdf;
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const imgData = canvas.toDataURL('image/png');
-            const imgWidth = 210;
-            const imgHeight = (canvas.height * imgWidth) / canvas.width;
-            pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-            pdf.save(`MFBD_Dashboard_${new Date().toISOString().slice(0,19)}.pdf`);
-        } catch(e) { alert('Erro ao gerar PDF'); } finally { btn.innerHTML = '<i class="fas fa-file-pdf"></i> PDF'; btn.disabled = false; }
+  async function exportToPDF() {
+    const btn = document.getElementById('exportPdfBtn');
+    btn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> PDF...';
+    btn.disabled = true;
+
+    try {
+        const element = document.querySelector('.container');
+        
+        // 1. Configurações para garantir a captura total e qualidade
+        const canvas = await html2canvas(element, { 
+            scale: 2, 
+            backgroundColor: '#ffffff',
+            width: element.scrollWidth, // Força a largura total do conteúdo
+            windowWidth: document.documentElement.offsetWidth // Garante que a renderização não se limite à tela visível
+        });
+
+        const { jsPDF } = window.jspdf;
+        
+        // 2. Define o PDF em mm (A4)
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const imgData = canvas.toDataURL('image/png');
+        
+        // 3. Cálculo para centralizar e ajustar margens (10mm de margem)
+        const pdfWidth = pdf.internal.pageSize.getWidth() - 20; 
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        
+        // 4. Se o conteúdo for maior que uma página A4, ele será cortado pela base.
+        // Adicionamos na posição x=10, y=10 para respeitar a margem.
+        pdf.addImage(imgData, 'PNG', 10, 10, pdfWidth, pdfHeight);
+        
+        pdf.save(`MFBD_Dashboard_${new Date().toISOString().slice(0,10)}.pdf`);
+        
+    } catch(e) { 
+        console.error(e);
+        alert('Erro ao gerar PDF'); 
+    } finally { 
+        btn.innerHTML = '<i class="fas fa-file-pdf"></i> PDF'; 
+        btn.disabled = false; 
     }
+}
 
     function exportToExcel() {
         const data = filteredProposals.map(p => ({
@@ -1284,6 +1337,7 @@ Digite 1, 2, 3, 4 ou 5 para detalhes específicos.`;
     document.getElementById('exportExcelBtn')?.addEventListener('click', exportToExcel);
     document.getElementById('aplicarFiltrosBtn')?.addEventListener('click', aplicarFiltros);
     document.getElementById('limparFiltrosBtn')?.addEventListener('click', limparFiltros);
+    document.getElementById('forecastMonths')?.addEventListener('change', () => atualizarPrevisao());
     
     document.getElementById('aiChatBtn')?.addEventListener('click', () => {
         const w = document.getElementById('aiChatWindow');
