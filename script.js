@@ -2440,6 +2440,192 @@ function criarGraficoTendenciaMargens(dados) {
 
 
 
+
+// ========== EXECUTIVE DASHBOARD (TELA2) ==========
+function abrirExecutiveDashboard() {
+    // Verificar se há dados para enviar
+    if (!historico || historico.length === 0) {
+        mostrarToast('📭 Nenhum dado disponível para o Dashboard Executivo', 'warning');
+        return;
+    }
+    
+    // Salvar dados no localStorage para o tela2.html consumir
+    const dadosExec = {
+        historico: historico,
+        usuario: usuarioAtual,
+        timestamp: new Date().toISOString(),
+        dataExportacao: new Date().toLocaleString('pt-BR'),
+        totalSimulacoes: historico.length,
+        ticketMedio: historico.reduce((sum, i) => sum + (parseFloat(i.preco) || 0), 0) / (historico.length || 1),
+        margemMedia: historico.reduce((sum, i) => sum + (parseFloat(i.margem) || 0), 0) / (historico.length || 1),
+        totalValor: historico.reduce((sum, i) => sum + (parseFloat(i.preco) || 0), 0),
+        clientesAtendidos: [...new Set(historico.map(i => i.cliente).filter(c => c))].length,
+        riscoDistribuicao: {
+            baixo: historico.filter(i => i.risco === 'baixo').length,
+            medio: historico.filter(i => i.risco === 'medio').length,
+            alto: historico.filter(i => i.risco === 'alto').length
+        },
+        segmentos: (() => {
+            const segs = {};
+            historico.forEach(i => {
+                const seg = i.segmento || 'outros';
+                segs[seg] = (segs[seg] || 0) + 1;
+            });
+            return segs;
+        })(),
+        cobrancas: (() => {
+            const cob = {};
+            historico.forEach(i => {
+                const tipo = i.cobrancaTexto || i.cobranca || 'outros';
+                cob[tipo] = (cob[tipo] || 0) + 1;
+            });
+            return cob;
+        })()
+    };
+    
+    localStorage.setItem('mfbd_exec_dashboard_data', JSON.stringify(dadosExec));
+    console.log('📊 Dados salvos para Executive Dashboard:', dadosExec.totalSimulacoes, 'simulações');
+    
+    // Criar modal para exibir o dashboard executivo
+    const modal = document.createElement('div');
+    modal.id = 'execDashboardModal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.85);
+        z-index: 10000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        backdrop-filter: blur(5px);
+    `;
+    
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+        width: 92%;
+        max-width: 1400px;
+        height: 88%;
+        background: #f1f5f9;
+        border-radius: 20px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+        animation: slideUp 0.3s ease;
+    `;
+    
+    // Header do modal
+    const header = document.createElement('div');
+    header.style.cssText = `
+        padding: 18px 24px;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 3px solid #3b82f6;
+        flex-shrink: 0;
+    `;
+    header.innerHTML = `
+        <div>
+            <h2 style="margin:0; font-size: 1.4rem;">🚀 Executive Dashboard</h2>
+            <p style="margin:5px 0 0; opacity:0.7; font-size:0.8rem;">
+                📊 ${dadosExec.totalSimulacoes} simulações | 
+                👥 ${dadosExec.clientesAtendidos} clientes | 
+                📅 ${dadosExec.dataExportacao}
+            </p>
+        </div>
+        <button onclick="fecharExecutiveDashboard()" style="
+            background: rgba(255,255,255,0.15);
+            border: none;
+            color: white;
+            font-size: 22px;
+            cursor: pointer;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            font-weight: bold;
+        " onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">✕</button>
+    `;
+    
+    // Iframe para carregar tela2.html
+    const iframe = document.createElement('iframe');
+    iframe.src = 'tela2.html';
+    iframe.style.cssText = `
+        width: 100%;
+        height: 100%;
+        border: none;
+        background: #f8fafc;
+    `;
+    iframe.setAttribute('title', 'Executive Dashboard');
+    
+    modalContent.appendChild(header);
+    modalContent.appendChild(iframe);
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+    
+    // Adicionar estilo de animação se não existir
+    if (!document.getElementById('execDashStyles')) {
+        const style = document.createElement('style');
+        style.id = 'execDashStyles';
+        style.textContent = `
+            @keyframes slideUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(30px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // Prevenir scroll da página principal
+    document.body.style.overflow = 'hidden';
+    
+    // Fechar ao clicar fora do modal
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            fecharExecutiveDashboard();
+        }
+    });
+    
+    console.log('🚀 Executive Dashboard aberto com', dadosExec.totalSimulacoes, 'registros');
+}
+
+function fecharExecutiveDashboard() {
+    const modal = document.getElementById('execDashboardModal');
+    if (modal) {
+        modal.remove();
+        document.body.style.overflow = '';
+        console.log('✅ Executive Dashboard fechado');
+        // Limpar dados do localStorage após fechar (opcional)
+        // localStorage.removeItem('mfbd_exec_dashboard_data');
+    }
+}
+
+// Tecla ESC para fechar
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('execDashboardModal');
+        if (modal) {
+            fecharExecutiveDashboard();
+        }
+    }
+});
+
+
+
 // Monitora quando o usuário tenta sair ou atualizar a página
 window.addEventListener('beforeunload', function(e) {
     if (usuarioAtual) {
@@ -2532,3 +2718,4 @@ window.onload = function() {
 
     
 };
+
