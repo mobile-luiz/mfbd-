@@ -94,7 +94,6 @@
             border-color: #EB8302;
         }
 
-        /* Filtros de data */
         .filter-bar {
             background: #ffffff;
             border-radius: 20px;
@@ -161,13 +160,6 @@
             gap: 12px;
             font-size: 0.75rem;
             color: #64748b;
-        }
-        .filter-stats .badge {
-            background: #fff7ed;
-            padding: 6px 12px;
-            border-radius: 20px;
-            color: #EB8302;
-            font-weight: 600;
         }
 
         .kpi-grid-exec {
@@ -324,8 +316,8 @@
             position: fixed;
             bottom: 110px;
             right: 30px;
-            width: 380px;
-            height: 550px;
+            width: 450px;
+            height: 620px;
             background: white;
             border-radius: 28px;
             box-shadow: 0 20px 50px rgba(0,0,0,0.15);
@@ -364,10 +356,11 @@
         .message.ai { justify-content: flex-start; }
         .message.user { justify-content: flex-end; }
         .message-bubble {
-            max-width: 80%;
+            max-width: 85%;
             padding: 12px 16px;
             border-radius: 18px;
             font-size: 0.85rem;
+            line-height: 1.5;
         }
         .ai .message-bubble {
             background: white;
@@ -432,11 +425,146 @@
             color: white;
             border-color: #EB8302;
         }
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 4px 0;
+        }
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background: #EB8302;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        .option-list {
+            list-style: none;
+            margin-top: 8px;
+        }
+        .option-list li {
+            padding: 6px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .option-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            background: #EB8302;
+            color: white;
+            border-radius: 50%;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+        /* Modal de detalhes da proposta */
+        .detail-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        .detail-modal-content {
+            background: white;
+            max-width: 700px;
+            width: 90%;
+            max-height: 85vh;
+            overflow-y: auto;
+            border-radius: 32px;
+            padding: 28px;
+            border-top: 6px solid #EB8302;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+        .detail-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #eef2f6;
+        }
+        .detail-modal-header h3 {
+            color: #EB8302;
+            margin: 0;
+        }
+        .detail-close-btn {
+            background: none;
+            border: none;
+            font-size: 28px;
+            color: #666;
+            cursor: pointer;
+        }
+        .detail-section {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eef2f6;
+        }
+        .detail-section h4 {
+            color: #EB8302;
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+        }
+        .detail-label {
+            font-weight: 600;
+            color: #64748b;
+            font-size: 0.75rem;
+        }
+        .detail-value {
+            font-weight: 500;
+            color: #1a1a2e;
+            font-size: 0.8rem;
+        }
+        .perfis-list {
+            list-style: none;
+            padding-left: 0;
+        }
+        .perfis-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eef2f6;
+            display: flex;
+            justify-content: space-between;
+        }
+        .alert-badge {
+            background: #fff7ed;
+            padding: 10px;
+            border-radius: 12px;
+            color: #EB8302;
+            border-left: 3px solid #EB8302;
+            margin-top: 10px;
+        }
         @media (max-width: 780px) {
             body { padding: 18px; }
-            .ai-chat-window { width: 320px; right: 15px; }
+            .ai-chat-window { width: 340px; right: 15px; height: 550px; }
             .filter-bar { flex-direction: column; align-items: stretch; }
             .filter-stats { margin-left: 0; justify-content: space-between; }
+            .detail-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -456,7 +584,6 @@
         </div>
     </div>
 
-    <!-- Filtros de Data -->
     <div class="filter-bar">
         <div class="filter-group">
             <label><i class="far fa-calendar-alt"></i> Data Inicial</label>
@@ -495,7 +622,7 @@
                 <tbody id="tableExecBody"><tr><td colspan="7">Carregando...</td></tr></tbody>
             </table>
         </div>
-        <div class="footer-note"><i class="fas fa-lightbulb"></i> Clique em qualquer linha para ver detalhes de custos e alertas. | <i class="fas fa-robot"></i> Use o assistente IA no canto inferior direito</div>
+        <div class="footer-note"><i class="fas fa-lightbulb"></i> Clique em qualquer linha para ver TODOS os detalhes da proposta (valores originais, perfis, condições comerciais, etc.) | <i class="fas fa-robot"></i> IA Conselheira Estratégica</div>
     </div>
 </div>
 
@@ -505,22 +632,38 @@
     </div>
     <div class="ai-chat-window" id="aiChatWindow">
         <div class="ai-header">
-            <h3><i class="fas fa-brain"></i> Conselheiro MFBD · IA</h3>
+            <h3><i class="fas fa-brain"></i> Conselheira Estratégica MFBD</h3>
             <button class="close-ai" id="closeAiBtn">&times;</button>
         </div>
         <div class="ai-messages" id="aiMessages">
             <div class="message ai">
-                <div class="message-bubble">👋 Olá! Sou seu assistente estratégico. Pergunte sobre margens, riscos, eficiência ou peça recomendações personalizadas.</div>
+                <div class="message-bubble">
+                    🎯 <strong>Olá! Sou sua Conselheira Estratégica</strong><br><br>
+                    Tenho acesso completo aos seus dados de precificação, margens, riscos e eficiência operacional.<br><br>
+                    <strong>📋 Minhas capacidades:</strong>
+                    <ul class="option-list" style="margin-top: 8px;">
+                        <li><span class="option-number">1</span> ✅ Analisar rentabilidade por segmento</li>
+                        <li><span class="option-number">2</span> ✅ Identificar riscos operacionais</li>
+                        <li><span class="option-number">3</span> ✅ Recomendar otimizações de preço</li>
+                        <li><span class="option-number">4</span> ✅ Prever tendências de margem</li>
+                        <li><span class="option-number">5</span> ✅ Sugerir ajustes de alocação</li>
+                    </ul>
+                    <br>
+                    💡 <strong>Como posso ajudar sua estratégia hoje?</strong><br>
+                    <span style="font-size: 0.75rem; color: #64748b;">Digite o número da opção ou faça sua pergunta diretamente.</span>
+                </div>
             </div>
         </div>
         <div class="suggestions" id="suggestions">
-            <div class="suggestion-chip" data-question="Como está minha margem geral?">📊 Margem geral</div>
-            <div class="suggestion-chip" data-question="Quais clientes têm maior risco?">⚠️ Clientes com risco</div>
-            <div class="suggestion-chip" data-question="Onde posso melhorar a rentabilidade?">💰 Melhorar rentabilidade</div>
-            <div class="suggestion-chip" data-question="Análise de eficiência operacional">⚙️ Eficiência</div>
+            <div class="suggestion-chip" data-question="1">🔢 Opção 1 - Rentabilidade</div>
+            <div class="suggestion-chip" data-question="2">⚠️ Opção 2 - Riscos</div>
+            <div class="suggestion-chip" data-question="3">💰 Opção 3 - Otimização</div>
+            <div class="suggestion-chip" data-question="4">📈 Opção 4 - Tendências</div>
+            <div class="suggestion-chip" data-question="5">⚙️ Opção 5 - Alocação</div>
+            <div class="suggestion-chip" data-question="Análise completa">📊 Análise Completa</div>
         </div>
         <div class="ai-input-area">
-            <input type="text" id="aiInput" placeholder="Digite sua pergunta..." />
+            <input type="text" id="aiInput" placeholder="Ex: 1, 2, 3, 4, 5 ou digite sua pergunta..." />
             <button id="sendAiBtn"><i class="fas fa-paper-plane"></i></button>
         </div>
     </div>
@@ -542,6 +685,7 @@
     let allProposals = [];
     let filteredProposals = [];
     let generativeAI = null;
+    let conversationHistory = [];
 
     const formatMoney = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
     
@@ -555,10 +699,325 @@
         } catch(e) { console.warn("AI fallback ativo"); }
     }
 
-    function formatDateFromTimestamp(timestamp) {
-        if (!timestamp) return null;
-        const date = new Date(timestamp);
-        return date.toISOString().split('T')[0];
+    function getBusinessAnalytics() {
+        if (!filteredProposals.length) return null;
+        
+        const totalRevenue = filteredProposals.reduce((s,p) => s + p.preco, 0);
+        const avgMargin = filteredProposals.reduce((s,p) => s + p.margemPct, 0) / filteredProposals.length;
+        const weightedMargin = filteredProposals.reduce((acc,p) => acc + (p.margemPct * p.preco), 0) / totalRevenue;
+        
+        const marginBySegment = {};
+        const marginByType = {};
+        const riskByComplexity = { baixa: 0, media: 0, alta: 0 };
+        let highRiskCount = 0, lowMarginCount = 0;
+        
+        filteredProposals.forEach(p => {
+            if (!marginBySegment[p.segmento]) marginBySegment[p.segmento] = { sum: 0, count: 0 };
+            marginBySegment[p.segmento].sum += p.margemPct;
+            marginBySegment[p.segmento].count++;
+            
+            if (!marginByType[p.cobrancaTexto]) marginByType[p.cobrancaTexto] = { sum: 0, count: 0 };
+            marginByType[p.cobrancaTexto].sum += p.margemPct;
+            marginByType[p.cobrancaTexto].count++;
+            
+            if (p.riscoEscopo > 25) highRiskCount++;
+            if (p.margemPct < 35) lowMarginCount++;
+            
+            if (riskByComplexity[p.complexidade] !== undefined) {
+                riskByComplexity[p.complexidade] += p.riscoEscopo;
+            }
+        });
+        
+        const segmentMargins = Object.entries(marginBySegment).map(([seg, data]) => ({ segment: seg, margin: data.sum / data.count }));
+        segmentMargins.sort((a,b) => b.margin - a.margin);
+        
+        const typeMargins = Object.entries(marginByType).map(([type, data]) => ({ type, margin: data.sum / data.count }));
+        
+        return {
+            totalProposals: filteredProposals.length,
+            totalRevenue,
+            avgMargin,
+            weightedMargin,
+            topSegment: segmentMargins[0],
+            worstSegment: segmentMargins[segmentMargins.length - 1],
+            bestPricingType: typeMargins.sort((a,b) => b.margin - a.margin)[0],
+            highRiskCount,
+            lowMarginCount,
+            riskByComplexity,
+            totalHours: filteredProposals.reduce((s,p) => {
+                return s + Object.values(p.horasPorPerfil || {}).reduce((a,b) => a + b, 0);
+            }, 0)
+        };
+    }
+
+    // Função para mostrar modal com TODOS os detalhes da proposta
+    function showPropostaDetalhes(prop) {
+        // Formatar horas por perfil
+        let horasHtml = '';
+        if (prop.detalhamentoCalculo && prop.detalhamentoCalculo.length > 0) {
+            prop.detalhamentoCalculo.forEach(d => {
+                horasHtml += `<li><span><strong>${d.perfil}</strong></span><span>${d.horas}h · R$ ${(d.custoHora || 0).toFixed(2)}/h = R$ ${(d.custo || 0).toFixed(2)}</span></li>`;
+            });
+        } else if (prop.horasPorPerfil && Object.keys(prop.horasPorPerfil).length > 0) {
+            Object.entries(prop.horasPorPerfil).forEach(([perfil, horas]) => {
+                horasHtml += `<li><span><strong>${perfil}</strong></span><span>${horas}h</span></li>`;
+            });
+        } else {
+            horasHtml = '<li>Nenhum detalhamento de horas disponível</li>';
+        }
+
+        // Formatar condições financeiras
+        const entrada = prop.entrada || 0;
+        const parcelas = prop.parcelas || 1;
+        const desconto = prop.desconto || 0;
+        const percParceiro = prop.percParceiro || 0;
+        const percCS = prop.percCS || 7.5;
+        
+        const modalHtml = `
+            <div class="detail-modal-overlay" id="detalhesModalOverlay">
+                <div class="detail-modal-content">
+                    <div class="detail-modal-header">
+                        <h3><i class="fas fa-file-invoice"></i> ${escapeHtml(prop.cliente)}</h3>
+                        <button class="detail-close-btn" onclick="fecharModalDetalhes()">&times;</button>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4><i class="fas fa-user"></i> Dados do Cliente</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item"><span class="detail-label">Cliente:</span><span class="detail-value">${escapeHtml(prop.cliente)}</span></div>
+                            <div class="detail-item"><span class="detail-label">Segmento:</span><span class="detail-value">${escapeHtml(prop.segmento)}</span></div>
+                            <div class="detail-item"><span class="detail-label">Tipo:</span><span class="detail-value">${escapeHtml(prop.cobrancaTexto)}</span></div>
+                            <div class="detail-item"><span class="detail-label">Risco:</span><span class="detail-value">${prop.riscoEscopo > 25 ? 'Alto' : (prop.riscoEscopo > 15 ? 'Médio' : 'Baixo')} (${prop.riscoEscopo}%)</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4><i class="fas fa-briefcase"></i> Serviço / Produto</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item"><span class="detail-label">Produto:</span><span class="detail-value">${escapeHtml(prop.produtoTexto)}</span></div>
+                            <div class="detail-item"><span class="detail-label">Complexidade:</span><span class="detail-value">${escapeHtml(prop.complexidade || 'Média')}</span></div>
+                            <div class="detail-item"><span class="detail-label">Urgência:</span><span class="detail-value">${escapeHtml(prop.urgencia || 'Normal')}</span></div>
+                            <div class="detail-item"><span class="detail-label">Escopo:</span><span class="detail-value">${escapeHtml((prop.escopo || 'Não informado').substring(0, 100))}</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4><i class="fas fa-users"></i> Equipe e Esforço</h4>
+                        <ul class="perfis-list">
+                            ${horasHtml}
+                        </ul>
+                        <div class="detail-item" style="margin-top: 10px;">
+                            <span class="detail-label">Buffer de risco:</span>
+                            <span class="detail-value">${prop.riscoEscopo || 20}%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4><i class="fas fa-chart-line"></i> Resultado Financeiro</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item"><span class="detail-label">Preço Total:</span><span class="detail-value"><strong>${formatMoney(prop.preco)}</strong></span></div>
+                            <div class="detail-item"><span class="detail-label">Margem Líquida:</span><span class="detail-value"><strong>${prop.margemPct.toFixed(1)}%</strong></span></div>
+                            <div class="detail-item"><span class="detail-label">Custo Total:</span><span class="detail-value">${formatMoney(prop.custoTotal || prop.custoBase || 0)}</span></div>
+                            <div class="detail-item"><span class="detail-label">Valor da Margem:</span><span class="detail-value">${formatMoney(prop.margemValor || 0)}</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4><i class="fas fa-hand-holding-usd"></i> Condições Comerciais</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item"><span class="detail-label">Entrada:</span><span class="detail-value">${entrada}%</span></div>
+                            <div class="detail-item"><span class="detail-label">Parcelas:</span><span class="detail-value">${parcelas}x</span></div>
+                            <div class="detail-item"><span class="detail-label">Desconto:</span><span class="detail-value">${desconto}%</span></div>
+                            <div class="detail-item"><span class="detail-label">Comissão Parceiro:</span><span class="detail-value">${percParceiro}%</span></div>
+                            <div class="detail-item"><span class="detail-label">CS (Compartilhamento):</span><span class="detail-value">${percCS}%</span></div>
+                            <div class="detail-item"><span class="detail-label">Impostos:</span><span class="detail-value">${prop.impostos || 11.33}%</span></div>
+                        </div>
+                    </div>
+                    
+                    ${prop.alertas ? `
+                    <div class="detail-section">
+                        <h4><i class="fas fa-exclamation-triangle"></i> Alertas</h4>
+                        <div class="alert-badge">💡 ${escapeHtml(prop.alertas)}</div>
+                    </div>
+                    ` : ''}
+                    
+                    <div class="detail-section">
+                        <h4><i class="fas fa-calendar"></i> Informações Adicionais</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item"><span class="detail-label">Data de Criação:</span><span class="detail-value">${prop.data}</span></div>
+                            <div class="detail-item"><span class="detail-label">ID da Proposta:</span><span class="detail-value">${prop.id || prop.timestamp || 'N/A'}</span></div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 20px; text-align: center;">
+                        <button onclick="fecharModalDetalhes()" style="background: #EB8302; color: white; border: none; padding: 10px 24px; border-radius: 30px; cursor: pointer;">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const div = document.createElement('div');
+        div.innerHTML = modalHtml;
+        document.body.appendChild(div);
+        
+        // Armazenar função no escopo global para fechar
+        window.fecharModalDetalhes = function() {
+            const modal = document.getElementById('detalhesModalOverlay');
+            if (modal) modal.remove();
+        };
+        
+        // Fechar ao clicar no overlay
+        const overlay = document.getElementById('detalhesModalOverlay');
+        if (overlay) {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) window.fecharModalDetalhes();
+            });
+        }
+    }
+
+    async function askAI(question) {
+        const messagesDiv = document.getElementById('aiMessages');
+        
+        const userMsgDiv = document.createElement('div');
+        userMsgDiv.className = 'message user';
+        userMsgDiv.innerHTML = `<div class="message-bubble">${escapeHtml(question)}</div>`;
+        messagesDiv.appendChild(userMsgDiv);
+        
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'message ai';
+        typingDiv.innerHTML = `<div class="message-bubble"><div class="typing-indicator"><span></span><span></span><span></span></div></div>`;
+        messagesDiv.appendChild(typingDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        
+        conversationHistory.push({ role: "user", content: question });
+        
+        let answer = "";
+        const analytics = getBusinessAnalytics();
+        
+        let mappedQuestion = question;
+        if (question === "1") mappedQuestion = "Análise de rentabilidade por segmento - quero saber quais segmentos estão com melhor e pior margem, e como posso melhorar";
+        else if (question === "2") mappedQuestion = "Identificação de riscos operacionais - quero saber onde estão os maiores riscos e como mitigá-los";
+        else if (question === "3") mappedQuestion = "Otimizações de preço - quero recomendações práticas para aumentar margens e otimizar precificação";
+        else if (question === "4") mappedQuestion = "Previsão de tendências de margem - quero entender para onde o negócio está caminhando";
+        else if (question === "5") mappedQuestion = "Ajustes de alocação - quero otimizar a alocação de horas e recursos por perfil";
+        
+        if (generativeAI && filteredProposals.length) {
+            const systemPrompt = `Você é uma Conselheira Estratégica sênior especializada em precificação, rentabilidade e eficiência operacional para escritórios de advocacia e consultorias. 
+            
+DADOS ATUAIS DO NEGÓCIO:
+- Total de propostas: ${analytics.totalProposals}
+- Receita total: ${formatMoney(analytics.totalRevenue)}
+- Margem média ponderada: ${analytics.weightedMargin.toFixed(1)}%
+- Margem média simples: ${analytics.avgMargin.toFixed(1)}%
+- Segmento com maior margem: ${analytics.topSegment?.segment} (${analytics.topSegment?.margin.toFixed(1)}%)
+- Segmento com menor margem: ${analytics.worstSegment?.segment} (${analytics.worstSegment?.margin.toFixed(1)}%)
+- Tipo de cobrança mais rentável: ${analytics.bestPricingType?.type} (${analytics.bestPricingType?.margin.toFixed(1)}%)
+- Propostas com alto risco (>25%): ${analytics.highRiskCount}
+- Propostas com margem baixa (<35%): ${analytics.lowMarginCount}
+- Total de horas alocadas: ${analytics.totalHours}
+
+HISTÓRICO DA CONVERSA:
+${conversationHistory.slice(-3).map(m => `${m.role === 'user' ? 'Usuário' : 'Assistente'}: ${m.content}`).join('\n')}
+
+REGRAS:
+1. Seja direta, prática e orientada a ação
+2. Use dados específicos do negócio nas respostas
+3. Ofereça recomendações concretas e acionáveis
+4. Seja proativa - identifique problemas não perguntados
+5. Use linguagem de negócios, mas clara
+6. Máximo 5 frases para respostas simples, até 8 para análises complexas
+7. Sempre mostre números quando possível
+
+PERGUNTA DO USUÁRIO: ${mappedQuestion}
+
+RESPOSTA:`;
+            
+            try {
+                const result = await generativeAI.generateContent(systemPrompt);
+                answer = result.response.text();
+            } catch(e) { 
+                console.error("AI error:", e);
+                answer = getIntelligentFallback(mappedQuestion, analytics);
+            }
+        } else {
+            answer = getIntelligentFallback(mappedQuestion, analytics);
+        }
+        
+        messagesDiv.removeChild(typingDiv);
+        const aiMsgDiv = document.createElement('div');
+        aiMsgDiv.className = 'message ai';
+        aiMsgDiv.innerHTML = `<div class="message-bubble">${escapeHtml(answer)}</div>`;
+        messagesDiv.appendChild(aiMsgDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        
+        conversationHistory.push({ role: "assistant", content: answer });
+        if (conversationHistory.length > 10) conversationHistory = conversationHistory.slice(-10);
+    }
+    
+    function getIntelligentFallback(question, analytics) {
+        const q = question.toLowerCase();
+        
+        if (!analytics || analytics.totalProposals === 0) {
+            return "📭 Ainda não há dados suficientes para uma análise completa. Cadastre algumas propostas no sistema principal para que eu possa fornecer insights estratégicos personalizados.";
+        }
+        
+        if (q.includes('rentabilidade') || q.includes('segmento')) {
+            return `📊 **ANÁLISE DE RENTABILIDADE POR SEGMENTO**
+
+🏆 **Segmento Mais Rentável**: ${analytics.topSegment?.segment}
+   • Margem: ${analytics.topSegment?.margin.toFixed(1)}%
+
+⚠️ **Segmento com Menor Margem**: ${analytics.worstSegment?.segment}
+   • Margem: ${analytics.worstSegment?.margin.toFixed(1)}%
+
+💡 **Recomendações**:
+1. Aplique a estratégia do segmento ${analytics.topSegment?.segment} no ${analytics.worstSegment?.segment}
+2. Revise custos alocados para este segmento
+3. Considere aumento de preços de 10-15%`;
+        }
+        
+        if (q.includes('risco')) {
+            if (analytics.highRiskCount > 0) {
+                return `⚠️ **DIAGNÓSTICO DE RISCOS**: ${analytics.highRiskCount} propostas com alto risco.
+
+🛡️ **Mitigação**: Aumentar buffer para 35%, revisar contratos, alocar sócio sênior.`;
+            }
+            return `✅ Perfil de risco saudável. Continue monitorando projetos complexos.`;
+        }
+        
+        if (q.includes('preço') || q.includes('otimização')) {
+            return `💰 **OTIMIZAÇÃO DE PREÇO**: Margem atual ${analytics.weightedMargin.toFixed(1)}%.
+
+🎯 **Ações**: Priorize modelo ${analytics.bestPricingType?.type}, revise segmento ${analytics.worstSegment?.segment}, aumente preços 10-15%.`;
+        }
+        
+        if (q.includes('tendência')) {
+            return `🔮 **TENDÊNCIAS**: Cenário otimista com ajustes pode elevar margem para ${Math.min(65, analytics.weightedMargin + 12).toFixed(1)}% em 90 dias.`;
+        }
+        
+        if (q.includes('alocação')) {
+            return `⚙️ **EFICIÊNCIA**: Potencial de redução de 12-15% no custo redistribuindo horas de Sócio para perfis Pleno/Júnior.`;
+        }
+        
+        if (q.includes('análise completa') || q.includes('full')) {
+            return `📊 **ANÁLISE COMPLETA**
+
+• Receita: ${formatMoney(analytics.totalRevenue)}
+• Margem: ${analytics.weightedMargin.toFixed(1)}%
+• ${analytics.totalProposals} propostas
+• Melhor segmento: ${analytics.topSegment?.segment}
+• ${analytics.highRiskCount} projetos de alto risco
+
+Digite 1, 2, 3, 4 ou 5 para detalhes específicos.`;
+        }
+        
+        return `📊 Digite o número da opção desejada:
+
+1️⃣ Rentabilidade por segmento
+2️⃣ Riscos operacionais
+3️⃣ Otimização de preço
+4️⃣ Tendências de margem
+5️⃣ Ajustes de alocação`;
     }
 
     function aplicarFiltros() {
@@ -578,12 +1037,7 @@
         });
         
         document.getElementById('totalFiltrado').innerText = filteredProposals.length;
-        
-        if (filteredProposals.length === 0 && allProposals.length > 0) {
-            document.getElementById('filterStats').innerHTML = '<span><i class="fas fa-chart-line"></i> Nenhuma proposta no período</span>';
-        } else {
-            document.getElementById('filterStats').innerHTML = `<span><i class="fas fa-chart-line"></i> Total: ${filteredProposals.length} propostas</span>`;
-        }
+        document.getElementById('filterStats').innerHTML = `<span><i class="fas fa-chart-line"></i> Total: ${filteredProposals.length} propostas</span>`;
         
         renderFilteredDashboard();
     }
@@ -606,8 +1060,12 @@
                 const margemPct = p.margem ? parseFloat(p.margem) : (preco > 0 ? (parseFloat(p.margemValor||0) / preco) * 100 : 0);
                 const riscoEscopo = p.riscoEscopo ? parseFloat(p.riscoEscopo) : (p.risco === 'alto' ? 30 : (p.risco === 'medio' ? 20 : 10));
                 let horasPorPerfil = {};
-                if (p.detalhamentoCalculo && Array.isArray(p.detalhamentoCalculo)) {
-                    p.detalhamentoCalculo.forEach(item => {
+                let detalhamentoCalculo = p.detalhamentoCalculo || [];
+                if (detalhamentoCalculo.length === 0 && p.perfis) {
+                    detalhamentoCalculo = p.perfis;
+                }
+                if (detalhamentoCalculo && Array.isArray(detalhamentoCalculo)) {
+                    detalhamentoCalculo.forEach(item => {
                         const perfil = item.perfil || 'outro';
                         horasPorPerfil[perfil] = (horasPorPerfil[perfil] || 0) + (item.horas || 0);
                     });
@@ -619,15 +1077,25 @@
                     produtoTexto: p.produtoTexto || p.produto || 'Consultoria',
                     segmento: p.segmento || 'não definido',
                     complexidade: p.complexidade || 'media',
+                    urgencia: p.urgencia || 'normal',
+                    escopo: p.escopo || '',
                     horasPorPerfil,
+                    detalhamentoCalculo: detalhamentoCalculo,
                     alertas: p.alertas || '',
-                    detalhamentoCalculo: p.detalhamentoCalculo || [],
+                    entrada: p.entrada || 50,
+                    parcelas: p.parcelas || 1,
+                    desconto: p.desconto || 0,
+                    percParceiro: p.percParceiro || 0,
+                    percCS: p.percCS || 7.5,
+                    impostos: p.impostos || 11.33,
+                    custoTotal: p.custoTotal || p.custoBase || 0,
+                    margemValor: p.margemValor || 0,
                     timestamp: p.timestamp || Date.now(),
-                    data: p.data || new Date(p.timestamp).toLocaleString()
+                    data: p.data || new Date(p.timestamp).toLocaleString(),
+                    id: p.id || p.timestamp
                 };
             }).sort((a,b) => (b.timestamp||0) - (a.timestamp||0));
             
-            // Inicia com os filtros em branco - mostra todas as propostas
             filteredProposals = [...allProposals];
             document.getElementById('totalFiltrado').innerText = filteredProposals.length;
             renderFilteredDashboard();
@@ -639,20 +1107,20 @@
             document.getElementById('kpiExecArea').innerHTML = '<div class="card-exec">Nenhuma proposta encontrada</div>';
             document.getElementById('dataStatus').innerHTML = `${filteredProposals.length} propostas`;
             document.getElementById('insightRow').innerHTML = '';
-            // Clear charts when no data
             google.charts.load('current', { packages: ['corechart'] });
             google.charts.setOnLoadCallback(() => {
                 const emptyData = [['', '']];
-                if(document.getElementById('chartMargemExec')) new google.visualization.ColumnChart(document.getElementById('chartMargemExec')).draw(google.visualization.arrayToDataTable(emptyData), {});
-                if(document.getElementById('chartReceitaProduto')) new google.visualization.PieChart(document.getElementById('chartReceitaProduto')).draw(google.visualization.arrayToDataTable(emptyData), {});
-                if(document.getElementById('chartSegmento')) new google.visualization.BarChart(document.getElementById('chartSegmento')).draw(google.visualization.arrayToDataTable(emptyData), {});
-                if(document.getElementById('chartComplexidade')) new google.visualization.ColumnChart(document.getElementById('chartComplexidade')).draw(google.visualization.arrayToDataTable(emptyData), {});
-                if(document.getElementById('chartHorasPerfil')) new google.visualization.PieChart(document.getElementById('chartHorasPerfil')).draw(google.visualization.arrayToDataTable(emptyData), {});
-                if(document.getElementById('chartRiscoTicket')) new google.visualization.BarChart(document.getElementById('chartRiscoTicket')).draw(google.visualization.arrayToDataTable(emptyData), {});
+                const charts = ['chartMargemExec', 'chartReceitaProduto', 'chartSegmento', 'chartComplexidade', 'chartHorasPerfil', 'chartRiscoTicket'];
+                charts.forEach(id => {
+                    if(document.getElementById(id)) {
+                        new google.visualization.ColumnChart(document.getElementById(id)).draw(google.visualization.arrayToDataTable(emptyData), {});
+                    }
+                });
             });
             renderFilteredTable();
             return;
         }
+        
         const totalRevenue = filteredProposals.reduce((s,p) => s + p.preco, 0);
         const avgTicket = totalRevenue / filteredProposals.length;
         const weightedMargin = filteredProposals.reduce((acc,p) => acc + (p.margemPct * p.preco), 0) / totalRevenue;
@@ -679,12 +1147,12 @@
         const avgCompMarg = (comp) => complexMargins.count[comp] ? (complexMargins[comp]/complexMargins.count[comp]).toFixed(1) : 0;
         document.getElementById('insightRow').innerHTML = `
             <div class="insight-card"><h4><i class="fas fa-chart-pie"></i> TOP SEGMENTO</h4><ul class="metric-list"><li><span>💰 Maior receita:</span><strong>${topSeg?.[0]}</strong> (${formatMoney(topSeg?.[1] || 0)})</li><li><span>📈 Margem média por complexidade:</span> Baixa: ${avgCompMarg('baixa')}% | Média: ${avgCompMarg('media')}% | Alta: ${avgCompMarg('alta')}%</li></ul></div>
-            <div class="insight-card"><h4><i class="fas fa-clock"></i> EFICIÊNCIA DE ALOCAÇÃO</h4><ul class="metric-list"><li><span>🧠 Propostas com Sócio:</span> ${filteredProposals.filter(p => p.horasPorPerfil?.Sócio).length}</li><li><span>⚙️ Custo médio de mão de obra:</span> ${formatMoney(filteredProposals.reduce((s,p)=>s+(p.custoBase||0),0)/filteredProposals.length)}</li></ul></div>
+            <div class="insight-card"><h4><i class="fas fa-clock"></i> EFICIÊNCIA DE ALOCAÇÃO</h4><ul class="metric-list"><li><span>🧠 Propostas com Sócio:</span> ${filteredProposals.filter(p => p.horasPorPerfil?.Sócio).length}</li><li><span>⚙️ Custo médio de mão de obra:</span> ${formatMoney(filteredProposals.reduce((s,p)=>s+(p.custoTotal||0),0)/filteredProposals.length)}</li></ul></div>
         `;
 
         drawFilteredCharts();
         renderFilteredTable();
-        document.getElementById('dataStatus').innerHTML = `${filteredProposals.length} propostas · IA disponível`;
+        document.getElementById('dataStatus').innerHTML = `${filteredProposals.length} propostas · IA Estratégica Ativa`;
     }
 
     function drawFilteredCharts() {
@@ -769,88 +1237,19 @@
                         </tr>`;
         });
         tbody.innerHTML = html;
+        
+        // Adicionar evento de clique para mostrar modal com TODOS os detalhes
         document.querySelectorAll('.row-click').forEach(row => {
             row.addEventListener('click', (e) => {
                 const idx = parseInt(row.getAttribute('data-idx'));
-                if(!isNaN(idx) && filteredProposals[idx]) showExecutiveModal(filteredProposals[idx]);
+                if(!isNaN(idx) && filteredProposals[idx]) {
+                    showPropostaDetalhes(filteredProposals[idx]);
+                }
             });
         });
     }
 
-    function showExecutiveModal(prop) {
-        const horasDetalhe = prop.detalhamentoCalculo?.map(d => `<li>${d.perfil}: ${d.horas}h · R$ ${d.custoHora?.toFixed(2)}/h → total R$ ${d.custo?.toFixed(2)}</li>`).join('') || '<li>Não detalhado</li>';
-        const modalHtml = `
-            <div id="execModalOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:2000;">
-                <div style="background:white;max-width:550px;width:90%;border-radius:32px;padding:28px;border-top: 6px solid #EB8302; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
-                    <div style="display:flex;justify-content:space-between;margin-bottom:16px;"><h3 style="color:#EB8302;">${escapeHtml(prop.cliente)}</h3><button id="closeModal" style="background:none;border:none;font-size:28px;color:#666;cursor:pointer;">&times;</button></div>
-                    <p><strong>Produto:</strong> ${prop.produtoTexto} | <strong>Cobrança:</strong> ${prop.cobrancaTexto} | <strong>Segmento:</strong> ${prop.segmento}</p>
-                    <hr style="margin:12px 0; border-color:#eef2f6;">
-                    <p>💰 Valor: ${formatMoney(prop.preco)} | 📊 Margem: ${prop.margemPct.toFixed(1)}%</p>
-                    <p>⚠️ Risco: ${prop.riscoEscopo}% | 🧩 Complexidade: ${prop.complexidade}</p>
-                    <p><strong>⏱️ Alocação de horas:</strong></p>
-                    <ul style="margin-left:20px;">${horasDetalhe}</ul>
-                    ${prop.alertas ? `<div style="background:#fff7ed; border-radius:16px; padding:12px; margin-top:12px; color:#EB8302; border-left: 3px solid #EB8302;">💡 ${escapeHtml(prop.alertas)}</div>` : ''}
-                    <div style="margin-top:16px; font-size:0.75rem; background:#fff7ed; padding:10px; border-radius:20px; color:#EB8302;">🎯 Recomendação: ${prop.margemPct > 55 ? 'Excelente, replicar modelo.' : prop.margemPct < 35 ? 'Revisar precificação ou escopo.' : 'Monitorar riscos e otimizar alocação.'}</div>
-                </div>
-            </div>
-        `;
-        const div = document.createElement('div');
-        div.innerHTML = modalHtml;
-        document.body.appendChild(div);
-        document.getElementById('closeModal')?.addEventListener('click', () => div.remove());
-        div.addEventListener('click', (e) => { if(e.target.id === 'execModalOverlay') div.remove(); });
-    }
-
     function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
-
-    async function askAI(question) {
-        const messagesDiv = document.getElementById('aiMessages');
-        const userMsgDiv = document.createElement('div');
-        userMsgDiv.className = 'message user';
-        userMsgDiv.innerHTML = `<div class="message-bubble">${escapeHtml(question)}</div>`;
-        messagesDiv.appendChild(userMsgDiv);
-        
-        const typingDiv = document.createElement('div');
-        typingDiv.className = 'message ai';
-        typingDiv.innerHTML = `<div class="message-bubble"><div class="typing-indicator"><span></span><span></span><span></span></div></div>`;
-        messagesDiv.appendChild(typingDiv);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        
-        let answer = "";
-        if (generativeAI && filteredProposals.length) {
-            const totalRevenue = filteredProposals.reduce((s,p) => s + p.preco, 0);
-            const avgMargin = filteredProposals.reduce((s,p) => s + p.margemPct, 0) / filteredProposals.length;
-            const context = `Dados: ${filteredProposals.length} propostas, receita total ${formatMoney(totalRevenue)}, margem média ${avgMargin.toFixed(1)}%. Pergunta: ${question}`;
-            try {
-                const result = await generativeAI.generateContent(`Você é um consultor estratégico especializado em análise de negócios. ${context} Responda de forma prática, direta e orientada a ação. Máximo 4 frases.`);
-                answer = result.response.text();
-            } catch(e) { answer = getFallbackResponse(question); }
-        } else { answer = getFallbackResponse(question); }
-        
-        messagesDiv.removeChild(typingDiv);
-        const aiMsgDiv = document.createElement('div');
-        aiMsgDiv.className = 'message ai';
-        aiMsgDiv.innerHTML = `<div class="message-bubble">${escapeHtml(answer)}</div>`;
-        messagesDiv.appendChild(aiMsgDiv);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    }
-    
-    function getFallbackResponse(question) {
-        const q = question.toLowerCase();
-        if (q.includes('margem') || q.includes('rentabilidade')) {
-            const avgMargin = filteredProposals.length ? (filteredProposals.reduce((s,p) => s + p.margemPct, 0) / filteredProposals.length).toFixed(1) : 0;
-            return `Sua margem média atual é de ${avgMargin}%. Para melhorar, foque em revisar propostas com margem abaixo de 35% e replique os modelos de maior sucesso.`;
-        } else if (q.includes('risco')) {
-            const highRisk = filteredProposals.filter(p => p.riscoEscopo > 25);
-            if (highRisk.length > 0) {
-                return `⚠️ Identifiquei ${highRisk.length} propostas com alto risco de escopo. Recomendo atenção redobrada na gestão dessas entregas.`;
-            }
-            return `✅ Seu perfil de risco está equilibrado. Continue monitorando propostas com complexidade alta.`;
-        } else if (q.includes('eficiência') || q.includes('operacional')) {
-            return `Para maior eficiência, balanceie a alocação de recursos: utilize mais perfis juniores/plenos em atividades rotineiras para aumentar sua margem.`;
-        }
-        return `Com base nos dados atuais, sugiro focar em: 1) Melhorar margem de propostas complexas; 2) Monitorar riscos em projetos maiores; 3) Replicar modelos de sucesso. Posso detalhar qualquer tópico.`;
-    }
 
     async function exportToPDF() {
         const btn = document.getElementById('exportPdfBtn');
