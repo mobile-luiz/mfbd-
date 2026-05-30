@@ -613,13 +613,31 @@
             .detail-grid { grid-template-columns: 1fr; }
             .forecast-grid { grid-template-columns: 1fr; }
         }
+
+
+
+        @media print {
+    /* Esconde elementos desnecessários */
+    #exportPdfBtn, .ai-assistant, .action-buttons {
+        display: none !important;
+    }
+    
+    /* Garante que o container ocupe o máximo de espaço sem cortes */
+    .container {
+        width: 100% !important;
+        background-color: white !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        padding: 10px !important;
+    }
+}
     </style>
 </head>
 <body>
 <div class="container">
     <div class="exec-header">
         <div class="title-section">
-            <h1><i class="fas fa-chart-line"></i>Executive Command Center</h1>
+            <h1><i class="fas fa-chart-line"></i>Executive </h1>
             <p>MFBD · Análise Multi-Gráficos | Segmentos, Alocação de Horas e Rentabilidade</p>
         </div>
         <div class="kpi-badge">
@@ -1280,36 +1298,46 @@
 
     function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
 
-  async function exportToPDF() {
+async function exportToPDF() {
     const btn = document.getElementById('exportPdfBtn');
-    btn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> PDF...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Gerando...';
     btn.disabled = true;
 
     try {
         const element = document.querySelector('.container');
         
-        // 1. Configurações para garantir a captura total e qualidade
+        // Captura o canvas com alta qualidade
         const canvas = await html2canvas(element, { 
             scale: 2, 
-            backgroundColor: '#ffffff',
-            width: element.scrollWidth, // Força a largura total do conteúdo
-            windowWidth: document.documentElement.offsetWidth // Garante que a renderização não se limite à tela visível
+            useCORS: true,
+            width: element.scrollWidth,
+            windowWidth: document.documentElement.offsetWidth
         });
 
         const { jsPDF } = window.jspdf;
-        
-        // 2. Define o PDF em mm (A4)
         const pdf = new jsPDF('p', 'mm', 'a4');
+        
+        const imgWidth = 190; // Largura do A4 com margens (210 - 20)
+        const pageHeight = 297; // Altura do A4
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        
+        let heightLeft = imgHeight;
+        let position = 10; // Margem superior inicial
+
         const imgData = canvas.toDataURL('image/png');
-        
-        // 3. Cálculo para centralizar e ajustar margens (10mm de margem)
-        const pdfWidth = pdf.internal.pageSize.getWidth() - 20; 
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-        
-        // 4. Se o conteúdo for maior que uma página A4, ele será cortado pela base.
-        // Adicionamos na posição x=10, y=10 para respeitar a margem.
-        pdf.addImage(imgData, 'PNG', 10, 10, pdfWidth, pdfHeight);
-        
+
+        // Adiciona a primeira página
+        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+
+        // Enquanto houver conteúdo sobrando, adiciona novas páginas
+        while (heightLeft >= 0) {
+            position = heightLeft - imgHeight; 
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+        }
+
         pdf.save(`MFBD_Dashboard_${new Date().toISOString().slice(0,10)}.pdf`);
         
     } catch(e) { 
