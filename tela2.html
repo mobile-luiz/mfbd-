@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Executive Dashboard | MFBD Analytics + AI Advisor</title>
+    <!-- Firebase + Charts + Font Awesome -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@google/generative-ai@0.21.0/dist/index.umd.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #f5f7fb;
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            padding: 28px 32px;
+            color: #1a1a2e;
+        }
+
+        @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap');
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .exec-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 32px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eef2f6;
+        }
+        .title-section h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #1a1a2e;
+            letter-spacing: -0.3px;
+        }
+        .title-section h1 i {
+            color: #EB8302;
+            margin-right: 12px;
+        }
+        .title-section p {
+            color: #64748b;
+            font-size: 0.85rem;
+            margin-top: 6px;
+            font-weight: 500;
+        }
+        .kpi-badge {
+            background: #f1f5f9;
+            padding: 8px 24px;
+            border-radius: 60px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            color: #475569;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+        }
+        .btn-exec {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            padding: 6px 16px;
+            border-radius: 40px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-exec:hover {
+            background: #EB8302;
+            color: white;
+            border-color: #EB8302;
+        }
+
+        /* Filtros de data */
+        .filter-bar {
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 16px 24px;
+            margin-bottom: 24px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: flex-end;
+            border: 1px solid #eef2f6;
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .filter-group label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .filter-group input {
+            padding: 10px 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            background: #ffffff;
+            transition: all 0.2s;
+        }
+        .filter-group input:focus {
+            outline: none;
+            border-color: #EB8302;
+            box-shadow: 0 0 0 3px rgba(235, 131, 2, 0.1);
+        }
+        .btn-filter {
+            background: #EB8302;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-filter:hover {
+            background: #c46a00;
+        }
+        .btn-filter-secondary {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+        }
+        .btn-filter-secondary:hover {
+            background: #e2e8f0;
+            color: #1a1a2e;
+        }
+        .filter-stats {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+        .filter-stats .badge {
+            background: #fff7ed;
+            padding: 6px 12px;
+            border-radius: 20px;
+            color: #EB8302;
+            font-weight: 600;
+        }
+
+        .kpi-grid-exec {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+        .card-exec {
+            background: #ffffff;
+            border-radius: 28px;
+            padding: 22px 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            transition: all 0.2s;
+            color: #1a1a2e;
+            border: 1px solid #eef2f6;
+        }
+        .card-exec:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -8px rgba(0,0,0,0.1);
+            border-color: #fed7aa;
+        }
+        .card-exec h3 {
+            color: #EB8302;
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+        }
+        .card-exec .value-big {
+            font-size: 2.4rem;
+            font-weight: 800;
+            color: #1a1a2e;
+            line-height: 1.2;
+        }
+        .card-exec .trend {
+            color: #64748b;
+            font-size: 0.75rem;
+            margin-top: 8px;
+        }
+        .insight-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        .insight-card {
+            flex: 1;
+            min-width: 260px;
+            background: #ffffff;
+            border-radius: 24px;
+            padding: 20px;
+            border-left: 4px solid #EB8302;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            border: 1px solid #eef2f6;
+            border-left-width: 4px;
+        }
+        .insight-card h4 {
+            color: #EB8302;
+            margin-bottom: 16px;
+        }
+        .metric-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #eef2f6;
+        }
+        .charts-executive {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+        .chart-panel {
+            flex: 1;
+            min-width: 300px;
+            background: #ffffff;
+            border-radius: 28px;
+            padding: 18px 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            border: 1px solid #eef2f6;
+        }
+        .chart-panel h3 {
+            margin-bottom: 16px;
+            font-size: 1rem;
+            color: #EB8302;
+            font-weight: 600;
+        }
+        .table-exec {
+            background: #ffffff;
+            border-radius: 28px;
+            overflow-x: auto;
+            border: 1px solid #eef2f6;
+        }
+        .table-exec h2 {
+            color: #EB8302;
+            padding: 20px 20px 0 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+        th, td {
+            padding: 14px 16px;
+            border-bottom: 1px solid #eef2f6;
+            text-align: left;
+        }
+        th {
+            background: #f8fafc;
+            color: #EB8302;
+            font-weight: 600;
+        }
+        .row-click {
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .row-click:hover {
+            background: #fff7ed;
+        }
+        .footer-note {
+            text-align: center;
+            margin-top: 24px;
+            margin-bottom: 20px;
+            font-size: 0.7rem;
+            color: #64748b;
+        }
+        .ai-assistant {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+        }
+        .ai-chat-btn {
+            width: 65px;
+            height: 65px;
+            background: linear-gradient(135deg, #EB8302, #c46a00);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            transition: all 0.3s;
+            border: none;
+        }
+        .ai-chat-btn i {
+            font-size: 32px;
+            color: white;
+        }
+        .ai-chat-btn:hover {
+            transform: scale(1.08);
+            background: linear-gradient(135deg, #c46a00, #a35900);
+        }
+        .ai-chat-window {
+            position: fixed;
+            bottom: 110px;
+            right: 30px;
+            width: 380px;
+            height: 550px;
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 1001;
+            border: 1px solid #eef2f6;
+        }
+        .ai-header {
+            background: linear-gradient(135deg, #EB8302, #c46a00);
+            padding: 18px 20px;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .close-ai {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        .ai-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8fafc;
+        }
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        .message.ai { justify-content: flex-start; }
+        .message.user { justify-content: flex-end; }
+        .message-bubble {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 0.85rem;
+        }
+        .ai .message-bubble {
+            background: white;
+            color: #1a1a2e;
+            border-bottom-left-radius: 4px;
+            border: 1px solid #eef2f6;
+        }
+        .user .message-bubble {
+            background: #EB8302;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        .ai-input-area {
+            padding: 15px;
+            background: white;
+            border-top: 1px solid #eef2f6;
+            display: flex;
+            gap: 10px;
+        }
+        .ai-input-area input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 25px;
+            outline: none;
+        }
+        .ai-input-area input:focus {
+            border-color: #EB8302;
+        }
+        .ai-input-area button {
+            background: #EB8302;
+            border: none;
+            padding: 0 18px;
+            border-radius: 25px;
+            color: white;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .ai-input-area button:hover {
+            background: #c46a00;
+        }
+        .suggestions {
+            padding: 10px 15px;
+            background: #ffffff;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            border-top: 1px solid #eef2f6;
+        }
+        .suggestion-chip {
+            background: #f1f5f9;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            border: 1px solid #e2e8f0;
+            color: #475569;
+            transition: all 0.2s;
+        }
+        .suggestion-chip:hover {
+            background: #EB8302;
+            color: white;
+            border-color: #EB8302;
+        }
+        @media (max-width: 780px) {
+            body { padding: 18px; }
+            .ai-chat-window { width: 320px; right: 15px; }
+            .filter-bar { flex-direction: column; align-items: stretch; }
+            .filter-stats { margin-left: 0; justify-content: space-between; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="exec-header">
+        <div class="title-section">
+            <h1><i class="fas fa-chart-line"></i>Executive Command Center</h1>
+            <p>MFBD · Análise Multi-Gráficos | Segmentos, Alocação de Horas e Rentabilidade</p>
+        </div>
+        <div class="kpi-badge">
+            <i class="fas fa-database"></i> <span id="dataStatus">Conectando...</span>
+            <div class="action-buttons">
+                <button id="exportPdfBtn" class="btn-exec"><i class="fas fa-file-pdf"></i> PDF</button>
+                <button id="exportExcelBtn" class="btn-exec"><i class="fas fa-file-excel"></i> Excel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros de Data -->
+    <div class="filter-bar">
+        <div class="filter-group">
+            <label><i class="far fa-calendar-alt"></i> Data Inicial</label>
+            <input type="date" id="dataInicial" value="">
+        </div>
+        <div class="filter-group">
+            <label><i class="far fa-calendar-alt"></i> Data Final</label>
+            <input type="date" id="dataFinal" value="">
+        </div>
+        <button class="btn-filter" id="aplicarFiltrosBtn"><i class="fas fa-filter"></i> Aplicar Filtro</button>
+        <button class="btn-filter btn-filter-secondary" id="limparFiltrosBtn"><i class="fas fa-undo-alt"></i> Limpar</button>
+        <div class="filter-stats" id="filterStats">
+            <span><i class="fas fa-chart-line"></i> Total: <span id="totalFiltrado">0</span> propostas</span>
+        </div>
+    </div>
+
+    <div class="kpi-grid-exec" id="kpiExecArea"></div>
+    <div class="insight-row" id="insightRow"></div>
+
+    <div class="charts-executive">
+        <div class="chart-panel"><h3><i class="fas fa-chart-simple"></i> Margem por Tipo de Cobrança</h3><div id="chartMargemExec" style="height: 280px;"></div></div>
+        <div class="chart-panel"><h3><i class="fas fa-chart-pie"></i> Receita por Produto</h3><div id="chartReceitaProduto" style="height: 280px;"></div></div>
+        <div class="chart-panel"><h3><i class="fas fa-building"></i> Receita por Segmento</h3><div id="chartSegmento" style="height: 280px;"></div></div>
+    </div>
+    <div class="charts-executive">
+        <div class="chart-panel"><h3><i class="fas fa-chart-line"></i> Margem vs Complexidade</h3><div id="chartComplexidade" style="height: 280px;"></div></div>
+        <div class="chart-panel"><h3><i class="fas fa-clock"></i> Alocação de Horas por Perfil</h3><div id="chartHorasPerfil" style="height: 280px;"></div></div>
+        <div class="chart-panel"><h3><i class="fas fa-chart-line"></i> Ticket Médio por Risco</h3><div id="chartRiscoTicket" style="height: 280px;"></div></div>
+    </div>
+
+    <div class="table-exec">
+        <h2><i class="fas fa-bullhorn"></i> Propostas Estratégicas · Análise de Valor</h2>
+        <div style="overflow-x:auto; padding: 0 20px 20px 20px;">
+            <table id="decisionTable">
+                <thead><tr><th>Cliente</th><th>Tipo</th><th>Valor (R$)</th><th>Margem</th><th>Segmento</th><th>Score</th><th>Data</th></tr></thead>
+                <tbody id="tableExecBody"><tr><td colspan="7">Carregando...</td></tr></tbody>
+            </table>
+        </div>
+        <div class="footer-note"><i class="fas fa-lightbulb"></i> Clique em qualquer linha para ver detalhes de custos e alertas. | <i class="fas fa-robot"></i> Use o assistente IA no canto inferior direito</div>
+    </div>
+</div>
+
+<div class="ai-assistant">
+    <div class="ai-chat-btn" id="aiChatBtn">
+        <i class="fas fa-robot"></i>
+    </div>
+    <div class="ai-chat-window" id="aiChatWindow">
+        <div class="ai-header">
+            <h3><i class="fas fa-brain"></i> Conselheiro MFBD · IA</h3>
+            <button class="close-ai" id="closeAiBtn">&times;</button>
+        </div>
+        <div class="ai-messages" id="aiMessages">
+            <div class="message ai">
+                <div class="message-bubble">👋 Olá! Sou seu assistente estratégico. Pergunte sobre margens, riscos, eficiência ou peça recomendações personalizadas.</div>
+            </div>
+        </div>
+        <div class="suggestions" id="suggestions">
+            <div class="suggestion-chip" data-question="Como está minha margem geral?">📊 Margem geral</div>
+            <div class="suggestion-chip" data-question="Quais clientes têm maior risco?">⚠️ Clientes com risco</div>
+            <div class="suggestion-chip" data-question="Onde posso melhorar a rentabilidade?">💰 Melhorar rentabilidade</div>
+            <div class="suggestion-chip" data-question="Análise de eficiência operacional">⚙️ Eficiência</div>
+        </div>
+        <div class="ai-input-area">
+            <input type="text" id="aiInput" placeholder="Digite sua pergunta..." />
+            <button id="sendAiBtn"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyBz8hhsSzicDiFHgK9LOfnZthFlmFEvJgk",
+        authDomain: "mfbd-2991c.firebaseapp.com",
+        databaseURL: "https://mfbd-2991c-default-rtdb.firebaseio.com",
+        projectId: "mfbd-2991c",
+        storageBucket: "mfbd-2991c.firebasestorage.app",
+        messagingSenderId: "985957407721",
+        appId: "1:985957407721:web:0989dd21e22c4e40634978"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let allProposals = [];
+    let filteredProposals = [];
+    let generativeAI = null;
+
+    const formatMoney = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+    
+    async function initAI() {
+        try {
+            const { GoogleGenerativeAI } = window;
+            if (GoogleGenerativeAI) {
+                const genAI = new GoogleGenerativeAI("AIzaSyD9Vw-8lJ6Z3xqLmNpOrKjHwRtYxVbNcX7");
+                generativeAI = genAI.getGenerativeModel({ model: "gemini-pro" });
+            }
+        } catch(e) { console.warn("AI fallback ativo"); }
+    }
+
+    function formatDateFromTimestamp(timestamp) {
+        if (!timestamp) return null;
+        const date = new Date(timestamp);
+        return date.toISOString().split('T')[0];
+    }
+
+    function aplicarFiltros() {
+        const dataInicialStr = document.getElementById('dataInicial').value;
+        const dataFinalStr = document.getElementById('dataFinal').value;
+        
+        const dataInicial = dataInicialStr ? new Date(dataInicialStr) : null;
+        const dataFinal = dataFinalStr ? new Date(dataFinalStr) : null;
+        
+        if (dataFinal) dataFinal.setHours(23, 59, 59, 999);
+        
+        filteredProposals = allProposals.filter(prop => {
+            const propDate = new Date(prop.timestamp);
+            if (dataInicial && propDate < dataInicial) return false;
+            if (dataFinal && propDate > dataFinal) return false;
+            return true;
+        });
+        
+        document.getElementById('totalFiltrado').innerText = filteredProposals.length;
+        
+        if (filteredProposals.length === 0 && allProposals.length > 0) {
+            document.getElementById('filterStats').innerHTML = '<span><i class="fas fa-chart-line"></i> Nenhuma proposta no período</span>';
+        } else {
+            document.getElementById('filterStats').innerHTML = `<span><i class="fas fa-chart-line"></i> Total: ${filteredProposals.length} propostas</span>`;
+        }
+        
+        renderFilteredDashboard();
+    }
+    
+    function limparFiltros() {
+        document.getElementById('dataInicial').value = '';
+        document.getElementById('dataFinal').value = '';
+        filteredProposals = [...allProposals];
+        document.getElementById('totalFiltrado').innerText = filteredProposals.length;
+        document.getElementById('filterStats').innerHTML = `<span><i class="fas fa-chart-line"></i> Total: ${filteredProposals.length} propostas</span>`;
+        renderFilteredDashboard();
+    }
+
+    async function loadData() {
+        try {
+            const histSnap = await db.ref('historico').once('value');
+            const raw = histSnap.val() || {};
+            allProposals = Object.values(raw).map(p => {
+                const preco = parseFloat(p.preco) || 0;
+                const margemPct = p.margem ? parseFloat(p.margem) : (preco > 0 ? (parseFloat(p.margemValor||0) / preco) * 100 : 0);
+                const riscoEscopo = p.riscoEscopo ? parseFloat(p.riscoEscopo) : (p.risco === 'alto' ? 30 : (p.risco === 'medio' ? 20 : 10));
+                let horasPorPerfil = {};
+                if (p.detalhamentoCalculo && Array.isArray(p.detalhamentoCalculo)) {
+                    p.detalhamentoCalculo.forEach(item => {
+                        const perfil = item.perfil || 'outro';
+                        horasPorPerfil[perfil] = (horasPorPerfil[perfil] || 0) + (item.horas || 0);
+                    });
+                }
+                return {
+                    ...p, preco, margemPct, riscoEscopo,
+                    cliente: p.cliente || 'Cliente não identificado',
+                    cobrancaTexto: p.cobrancaTexto || p.cobranca || '—',
+                    produtoTexto: p.produtoTexto || p.produto || 'Consultoria',
+                    segmento: p.segmento || 'não definido',
+                    complexidade: p.complexidade || 'media',
+                    horasPorPerfil,
+                    alertas: p.alertas || '',
+                    detalhamentoCalculo: p.detalhamentoCalculo || [],
+                    timestamp: p.timestamp || Date.now(),
+                    data: p.data || new Date(p.timestamp).toLocaleString()
+                };
+            }).sort((a,b) => (b.timestamp||0) - (a.timestamp||0));
+            
+            // Inicia com os filtros em branco - mostra todas as propostas
+            filteredProposals = [...allProposals];
+            document.getElementById('totalFiltrado').innerText = filteredProposals.length;
+            renderFilteredDashboard();
+        } catch(e) { console.error(e); }
+    }
+
+    function renderFilteredDashboard() {
+        if(!filteredProposals.length) {
+            document.getElementById('kpiExecArea').innerHTML = '<div class="card-exec">Nenhuma proposta encontrada</div>';
+            document.getElementById('dataStatus').innerHTML = `${filteredProposals.length} propostas`;
+            document.getElementById('insightRow').innerHTML = '';
+            // Clear charts when no data
+            google.charts.load('current', { packages: ['corechart'] });
+            google.charts.setOnLoadCallback(() => {
+                const emptyData = [['', '']];
+                if(document.getElementById('chartMargemExec')) new google.visualization.ColumnChart(document.getElementById('chartMargemExec')).draw(google.visualization.arrayToDataTable(emptyData), {});
+                if(document.getElementById('chartReceitaProduto')) new google.visualization.PieChart(document.getElementById('chartReceitaProduto')).draw(google.visualization.arrayToDataTable(emptyData), {});
+                if(document.getElementById('chartSegmento')) new google.visualization.BarChart(document.getElementById('chartSegmento')).draw(google.visualization.arrayToDataTable(emptyData), {});
+                if(document.getElementById('chartComplexidade')) new google.visualization.ColumnChart(document.getElementById('chartComplexidade')).draw(google.visualization.arrayToDataTable(emptyData), {});
+                if(document.getElementById('chartHorasPerfil')) new google.visualization.PieChart(document.getElementById('chartHorasPerfil')).draw(google.visualization.arrayToDataTable(emptyData), {});
+                if(document.getElementById('chartRiscoTicket')) new google.visualization.BarChart(document.getElementById('chartRiscoTicket')).draw(google.visualization.arrayToDataTable(emptyData), {});
+            });
+            renderFilteredTable();
+            return;
+        }
+        const totalRevenue = filteredProposals.reduce((s,p) => s + p.preco, 0);
+        const avgTicket = totalRevenue / filteredProposals.length;
+        const weightedMargin = filteredProposals.reduce((acc,p) => acc + (p.margemPct * p.preco), 0) / totalRevenue;
+        const highMarginDeals = filteredProposals.filter(p => p.margemPct > 55).length;
+
+        document.getElementById('kpiExecArea').innerHTML = `
+            <div class="card-exec"><h3>💰 RECEITA TOTAL</h3><div class="value-big">${formatMoney(totalRevenue)}</div><div class="trend">Ticket médio: ${formatMoney(avgTicket)}</div></div>
+            <div class="card-exec"><h3>📊 MARGEM MÉDIA</h3><div class="value-big">${weightedMargin.toFixed(1)}%</div><div class="trend">Ponderada por receita</div></div>
+            <div class="card-exec"><h3>⭐ DEALS +55% MARGEM</h3><div class="value-big">${highMarginDeals}</div><div class="trend">Alta rentabilidade</div></div>
+            <div class="card-exec"><h3>🏢 SEGMENTOS</h3><div class="value-big">${new Set(filteredProposals.map(p=>p.segmento)).size}</div><div class="trend">diferentes mercados</div></div>
+        `;
+
+        const segRevenue = new Map();
+        filteredProposals.forEach(p => segRevenue.set(p.segmento, (segRevenue.get(p.segmento)||0) + p.preco));
+        const topSeg = [...segRevenue.entries()].sort((a,b)=>b[1]-a[1])[0];
+        const complexMargins = { baixa:0, media:0, alta:0, count:{ baixa:0, media:0, alta:0 } };
+        filteredProposals.forEach(p => {
+            let comp = p.complexidade;
+            if(complexMargins[comp] !== undefined) {
+                complexMargins[comp] += p.margemPct;
+                complexMargins.count[comp]++;
+            }
+        });
+        const avgCompMarg = (comp) => complexMargins.count[comp] ? (complexMargins[comp]/complexMargins.count[comp]).toFixed(1) : 0;
+        document.getElementById('insightRow').innerHTML = `
+            <div class="insight-card"><h4><i class="fas fa-chart-pie"></i> TOP SEGMENTO</h4><ul class="metric-list"><li><span>💰 Maior receita:</span><strong>${topSeg?.[0]}</strong> (${formatMoney(topSeg?.[1] || 0)})</li><li><span>📈 Margem média por complexidade:</span> Baixa: ${avgCompMarg('baixa')}% | Média: ${avgCompMarg('media')}% | Alta: ${avgCompMarg('alta')}%</li></ul></div>
+            <div class="insight-card"><h4><i class="fas fa-clock"></i> EFICIÊNCIA DE ALOCAÇÃO</h4><ul class="metric-list"><li><span>🧠 Propostas com Sócio:</span> ${filteredProposals.filter(p => p.horasPorPerfil?.Sócio).length}</li><li><span>⚙️ Custo médio de mão de obra:</span> ${formatMoney(filteredProposals.reduce((s,p)=>s+(p.custoBase||0),0)/filteredProposals.length)}</li></ul></div>
+        `;
+
+        drawFilteredCharts();
+        renderFilteredTable();
+        document.getElementById('dataStatus').innerHTML = `${filteredProposals.length} propostas · IA disponível`;
+    }
+
+    function drawFilteredCharts() {
+        google.charts.load('current', { packages: ['corechart'] });
+        google.charts.setOnLoadCallback(() => {
+            if(!filteredProposals.length) return;
+            
+            const marginByType = new Map();
+            filteredProposals.forEach(p => {
+                let tipo = p.cobrancaTexto;
+                if(!marginByType.has(tipo)) marginByType.set(tipo, { sum:0, count:0 });
+                let d = marginByType.get(tipo);
+                d.sum += p.margemPct; d.count++;
+            });
+            const marginData = [['Tipo de Cobrança', 'Margem Líquida (%)']];
+            for(let [tipo, vals] of marginByType.entries()) marginData.push([tipo, vals.sum/vals.count]);
+            new google.visualization.ColumnChart(document.getElementById('chartMargemExec')).draw(google.visualization.arrayToDataTable(marginData), { colors: ['#EB8302'], vAxis: { format: '#\'%\'', viewWindow: { min: 0 } } });
+
+            const revProd = new Map();
+            filteredProposals.forEach(p => revProd.set(p.produtoTexto, (revProd.get(p.produtoTexto)||0) + p.preco));
+            const prodData = [['Produto', 'Receita']];
+            for(let [prod, val] of revProd.entries()) prodData.push([prod, val]);
+            new google.visualization.PieChart(document.getElementById('chartReceitaProduto')).draw(google.visualization.arrayToDataTable(prodData), { colors: ['#EB8302','#10B981','#8B5CF6','#EC4899','#06B6D4','#EF4444','#14B8A6','#6366F1'] });
+
+            const revSeg = new Map();
+            filteredProposals.forEach(p => revSeg.set(p.segmento, (revSeg.get(p.segmento)||0) + p.preco));
+            const segData = [['Segmento', 'Receita (R$)']];
+            for(let [seg, val] of revSeg.entries()) segData.push([seg, val]);
+            new google.visualization.BarChart(document.getElementById('chartSegmento')).draw(google.visualization.arrayToDataTable(segData), { colors: ['#EB8302'], hAxis: { format: 'currency' } });
+
+            const compMap = { baixa:0, media:0, alta:0, count:{ baixa:0, media:0, alta:0 } };
+            filteredProposals.forEach(p => { let c = p.complexidade; if(compMap[c]!==undefined) { compMap[c] += p.margemPct; compMap.count[c]++; } });
+            const compData = [['Complexidade', 'Margem Média (%)']];
+            for(let c of ['baixa','media','alta']) if(compMap.count[c]) compData.push([c.toUpperCase(), compMap[c]/compMap.count[c]]);
+            new google.visualization.ColumnChart(document.getElementById('chartComplexidade')).draw(google.visualization.arrayToDataTable(compData), { colors: ['#EB8302'], vAxis: { format: '#\'%\'', viewWindow: { min: 0 } } });
+
+            const horasPerfil = { 'Sócio':0, 'Pleno':0, 'Júnior':0, 'Senior':0, 'Coordenador':0 };
+            filteredProposals.forEach(p => {
+                if(p.horasPorPerfil) {
+                    Object.entries(p.horasPorPerfil).forEach(([perfil, horas]) => {
+                        let key = perfil;
+                        if(perfil.includes('Sócio')) key = 'Sócio';
+                        else if(perfil.includes('Pleno')) key = 'Pleno';
+                        else if(perfil.includes('Júnior')) key = 'Júnior';
+                        else if(perfil.includes('Sr') || perfil.includes('Senior')) key = 'Senior';
+                        else if(perfil.includes('Coord')) key = 'Coordenador';
+                        if(horasPerfil[key] !== undefined) horasPerfil[key] += horas;
+                    });
+                }
+            });
+            const horaData = [['Perfil', 'Horas Alocadas']];
+            for(let [perfil, horas] of Object.entries(horasPerfil)) if(horas>0) horaData.push([perfil, horas]);
+            new google.visualization.PieChart(document.getElementById('chartHorasPerfil')).draw(google.visualization.arrayToDataTable(horaData), { colors: ['#EB8302','#10B981','#EC4899','#8B5CF6','#06B6D4'] });
+
+            const riskGroups = { 'Baixo Risco':{sum:0,count:0}, 'Médio Risco':{sum:0,count:0}, 'Alto Risco':{sum:0,count:0} };
+            filteredProposals.forEach(p => {
+                if(p.riscoEscopo <= 15) { riskGroups['Baixo Risco'].sum += p.preco; riskGroups['Baixo Risco'].count++; }
+                else if(p.riscoEscopo <= 25) { riskGroups['Médio Risco'].sum += p.preco; riskGroups['Médio Risco'].count++; }
+                else { riskGroups['Alto Risco'].sum += p.preco; riskGroups['Alto Risco'].count++; }
+            });
+            const riskData = [['Categoria de Risco', 'Ticket Médio (R$)']];
+            for(let [cat, vals] of Object.entries(riskGroups)) if(vals.count) riskData.push([cat, vals.sum/vals.count]);
+            new google.visualization.BarChart(document.getElementById('chartRiscoTicket')).draw(google.visualization.arrayToDataTable(riskData), { colors: ['#EB8302'], hAxis: { format: 'currency' } });
+        });
+    }
+
+    function renderFilteredTable() {
+        const tbody = document.getElementById('tableExecBody');
+        if(!filteredProposals.length) { tbody.innerHTML = '<tr><td colspan="7">Nenhuma proposta encontrada</td></tr>'; return; }
+        let html = '';
+        filteredProposals.forEach((p, idx) => {
+            const score = (p.margemPct * 0.6) - (p.riscoEscopo * 0.4);
+            const scoreLabel = score > 30 ? '🟢 Alta' : (score > 15 ? '🟡 Média' : '🔴 Baixa');
+            html += `<tr class="row-click" data-idx="${idx}">
+                            <td>${escapeHtml(p.cliente.substring(0,28))}</td>
+                            <td>${escapeHtml(p.cobrancaTexto)}</td>
+                            <td>${formatMoney(p.preco)}</td>
+                            <td>${p.margemPct.toFixed(1)}%</td>
+                            <td>${escapeHtml(p.segmento)}</td>
+                            <td>${scoreLabel}</td>
+                            <td>${p.data.substring(0,10)}</td>
+                        </tr>`;
+        });
+        tbody.innerHTML = html;
+        document.querySelectorAll('.row-click').forEach(row => {
+            row.addEventListener('click', (e) => {
+                const idx = parseInt(row.getAttribute('data-idx'));
+                if(!isNaN(idx) && filteredProposals[idx]) showExecutiveModal(filteredProposals[idx]);
+            });
+        });
+    }
+
+    function showExecutiveModal(prop) {
+        const horasDetalhe = prop.detalhamentoCalculo?.map(d => `<li>${d.perfil}: ${d.horas}h · R$ ${d.custoHora?.toFixed(2)}/h → total R$ ${d.custo?.toFixed(2)}</li>`).join('') || '<li>Não detalhado</li>';
+        const modalHtml = `
+            <div id="execModalOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:2000;">
+                <div style="background:white;max-width:550px;width:90%;border-radius:32px;padding:28px;border-top: 6px solid #EB8302; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:16px;"><h3 style="color:#EB8302;">${escapeHtml(prop.cliente)}</h3><button id="closeModal" style="background:none;border:none;font-size:28px;color:#666;cursor:pointer;">&times;</button></div>
+                    <p><strong>Produto:</strong> ${prop.produtoTexto} | <strong>Cobrança:</strong> ${prop.cobrancaTexto} | <strong>Segmento:</strong> ${prop.segmento}</p>
+                    <hr style="margin:12px 0; border-color:#eef2f6;">
+                    <p>💰 Valor: ${formatMoney(prop.preco)} | 📊 Margem: ${prop.margemPct.toFixed(1)}%</p>
+                    <p>⚠️ Risco: ${prop.riscoEscopo}% | 🧩 Complexidade: ${prop.complexidade}</p>
+                    <p><strong>⏱️ Alocação de horas:</strong></p>
+                    <ul style="margin-left:20px;">${horasDetalhe}</ul>
+                    ${prop.alertas ? `<div style="background:#fff7ed; border-radius:16px; padding:12px; margin-top:12px; color:#EB8302; border-left: 3px solid #EB8302;">💡 ${escapeHtml(prop.alertas)}</div>` : ''}
+                    <div style="margin-top:16px; font-size:0.75rem; background:#fff7ed; padding:10px; border-radius:20px; color:#EB8302;">🎯 Recomendação: ${prop.margemPct > 55 ? 'Excelente, replicar modelo.' : prop.margemPct < 35 ? 'Revisar precificação ou escopo.' : 'Monitorar riscos e otimizar alocação.'}</div>
+                </div>
+            </div>
+        `;
+        const div = document.createElement('div');
+        div.innerHTML = modalHtml;
+        document.body.appendChild(div);
+        document.getElementById('closeModal')?.addEventListener('click', () => div.remove());
+        div.addEventListener('click', (e) => { if(e.target.id === 'execModalOverlay') div.remove(); });
+    }
+
+    function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
+
+    async function askAI(question) {
+        const messagesDiv = document.getElementById('aiMessages');
+        const userMsgDiv = document.createElement('div');
+        userMsgDiv.className = 'message user';
+        userMsgDiv.innerHTML = `<div class="message-bubble">${escapeHtml(question)}</div>`;
+        messagesDiv.appendChild(userMsgDiv);
+        
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'message ai';
+        typingDiv.innerHTML = `<div class="message-bubble"><div class="typing-indicator"><span></span><span></span><span></span></div></div>`;
+        messagesDiv.appendChild(typingDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        
+        let answer = "";
+        if (generativeAI && filteredProposals.length) {
+            const totalRevenue = filteredProposals.reduce((s,p) => s + p.preco, 0);
+            const avgMargin = filteredProposals.reduce((s,p) => s + p.margemPct, 0) / filteredProposals.length;
+            const context = `Dados: ${filteredProposals.length} propostas, receita total ${formatMoney(totalRevenue)}, margem média ${avgMargin.toFixed(1)}%. Pergunta: ${question}`;
+            try {
+                const result = await generativeAI.generateContent(`Você é um consultor estratégico especializado em análise de negócios. ${context} Responda de forma prática, direta e orientada a ação. Máximo 4 frases.`);
+                answer = result.response.text();
+            } catch(e) { answer = getFallbackResponse(question); }
+        } else { answer = getFallbackResponse(question); }
+        
+        messagesDiv.removeChild(typingDiv);
+        const aiMsgDiv = document.createElement('div');
+        aiMsgDiv.className = 'message ai';
+        aiMsgDiv.innerHTML = `<div class="message-bubble">${escapeHtml(answer)}</div>`;
+        messagesDiv.appendChild(aiMsgDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+    
+    function getFallbackResponse(question) {
+        const q = question.toLowerCase();
+        if (q.includes('margem') || q.includes('rentabilidade')) {
+            const avgMargin = filteredProposals.length ? (filteredProposals.reduce((s,p) => s + p.margemPct, 0) / filteredProposals.length).toFixed(1) : 0;
+            return `Sua margem média atual é de ${avgMargin}%. Para melhorar, foque em revisar propostas com margem abaixo de 35% e replique os modelos de maior sucesso.`;
+        } else if (q.includes('risco')) {
+            const highRisk = filteredProposals.filter(p => p.riscoEscopo > 25);
+            if (highRisk.length > 0) {
+                return `⚠️ Identifiquei ${highRisk.length} propostas com alto risco de escopo. Recomendo atenção redobrada na gestão dessas entregas.`;
+            }
+            return `✅ Seu perfil de risco está equilibrado. Continue monitorando propostas com complexidade alta.`;
+        } else if (q.includes('eficiência') || q.includes('operacional')) {
+            return `Para maior eficiência, balanceie a alocação de recursos: utilize mais perfis juniores/plenos em atividades rotineiras para aumentar sua margem.`;
+        }
+        return `Com base nos dados atuais, sugiro focar em: 1) Melhorar margem de propostas complexas; 2) Monitorar riscos em projetos maiores; 3) Replicar modelos de sucesso. Posso detalhar qualquer tópico.`;
+    }
+
+    async function exportToPDF() {
+        const btn = document.getElementById('exportPdfBtn');
+        btn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> PDF...';
+        btn.disabled = true;
+        try {
+            const element = document.querySelector('.container');
+            const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#ffffff' });
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const imgData = canvas.toDataURL('image/png');
+            const imgWidth = 210;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+            pdf.save(`MFBD_Dashboard_${new Date().toISOString().slice(0,19)}.pdf`);
+        } catch(e) { alert('Erro ao gerar PDF'); } finally { btn.innerHTML = '<i class="fas fa-file-pdf"></i> PDF'; btn.disabled = false; }
+    }
+
+    function exportToExcel() {
+        const data = filteredProposals.map(p => ({
+            Cliente: p.cliente, Tipo: p.cobrancaTexto, Produto: p.produtoTexto, Segmento: p.segmento,
+            'Valor (R$)': p.preco, 'Margem (%)': p.margemPct.toFixed(2), 'Risco Escopo (%)': p.riscoEscopo,
+            Complexidade: p.complexidade, Data: p.data, Alertas: p.alertas || ''
+        }));
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Propostas_MFBD');
+        XLSX.writeFile(wb, `MFBD_Dados_${new Date().toISOString().slice(0,19)}.xlsx`);
+    }
+
+    document.getElementById('exportPdfBtn')?.addEventListener('click', exportToPDF);
+    document.getElementById('exportExcelBtn')?.addEventListener('click', exportToExcel);
+    document.getElementById('aplicarFiltrosBtn')?.addEventListener('click', aplicarFiltros);
+    document.getElementById('limparFiltrosBtn')?.addEventListener('click', limparFiltros);
+    
+    document.getElementById('aiChatBtn')?.addEventListener('click', () => {
+        const w = document.getElementById('aiChatWindow');
+        w.style.display = w.style.display === 'flex' ? 'none' : 'flex';
+    });
+    document.getElementById('closeAiBtn')?.addEventListener('click', () => {
+        document.getElementById('aiChatWindow').style.display = 'none';
+    });
+    document.getElementById('sendAiBtn')?.addEventListener('click', async () => {
+        const input = document.getElementById('aiInput');
+        if (input.value.trim()) {
+            const q = input.value.trim();
+            input.value = '';
+            await askAI(q);
+        }
+    });
+    document.getElementById('aiInput')?.addEventListener('keypress', async (e) => {
+        if (e.key === 'Enter') {
+            const input = document.getElementById('aiInput');
+            if (input.value.trim()) {
+                const q = input.value.trim();
+                input.value = '';
+                await askAI(q);
+            }
+        }
+    });
+    document.querySelectorAll('.suggestion-chip').forEach(chip => {
+        chip.addEventListener('click', async () => {
+            const question = chip.getAttribute('data-question');
+            if (question) await askAI(question);
+        });
+    });
+    
+    initAI();
+    loadData();
+    db.ref('historico').on('value', () => loadData());
+</script>
+</body>
+</html>
