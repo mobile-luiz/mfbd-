@@ -631,6 +631,25 @@
         padding: 10px !important;
     }
 }
+
+
+
+@media print {
+    tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+    }
+    thead {
+        display: table-header-group;
+    }
+    tbody {
+        display: table-row-group;
+    }
+}
+
+
+
+
     </style>
 </head>
 <body>
@@ -1266,15 +1285,25 @@
             new google.visualization.BarChart(document.getElementById('chartRiscoTicket')).draw(google.visualization.arrayToDataTable(riskData), { colors: ['#EB8302'], hAxis: { format: 'currency' } });
         });
     }
-
-    function renderTable() {
-        const tbody = document.getElementById('tableExecBody');
-        if(!filteredProposals.length) { tbody.innerHTML = '<tr><td colspan="7">Nenhuma proposta encontrada</td><tr>'; return; }
-        let html = '';
-        filteredProposals.forEach((p, idx) => {
-            const score = (p.margemPct * 0.6) - (p.riscoEscopo * 0.4);
-            const scoreLabel = score > 30 ? '🟢 Alta' : (score > 15 ? '🟡 Média' : '🔴 Baixa');
-            html += `<tr class="row-click" data-idx="${idx}">
+function renderTable() {
+    const tbody = document.getElementById('tableExecBody');
+    if(!filteredProposals.length) { 
+        tbody.innerHTML = '<tr><td colspan="7">Nenhuma proposta encontrada</td></tr>'; 
+        return; 
+    }
+    
+    // 🔥 ORDENA: do mais recente para o mais antigo 🔥
+    const sortedProposals = [...filteredProposals].sort((a, b) => {
+        const dateA = new Date(a.timestamp);
+        const dateB = new Date(b.timestamp);
+        return dateB - dateA; // Mais recente primeiro
+    });
+    
+    let html = '';
+    sortedProposals.forEach((p, idx) => {
+        const score = (p.margemPct * 0.6) - (p.riscoEscopo * 0.4);
+        const scoreLabel = score > 30 ? '🟢 Alta' : (score > 15 ? '🟡 Média' : '🔴 Baixa');
+        html += `<tr class="row-click" data-idx="${idx}">
                             <td>${escapeHtml(p.cliente.substring(0,28))}</td>
                             <td>${escapeHtml(p.cobrancaTexto)}</td>
                             <td>${formatMoney(p.preco)}</td>
@@ -1282,22 +1311,21 @@
                             <td>${escapeHtml(p.segmento)}</td>
                             <td>${scoreLabel}</td>
                             <td>${p.data}</td>
-                        </tr>`;
+                         </tr>`;
+    });
+    tbody.innerHTML = html;
+    
+    document.querySelectorAll('.row-click').forEach(row => {
+        row.addEventListener('click', (e) => {
+            const idx = parseInt(row.getAttribute('data-idx'));
+            if(!isNaN(idx) && sortedProposals[idx]) {
+                showPropostaDetalhes(sortedProposals[idx]);
+            }
         });
-        tbody.innerHTML = html;
-        
-        document.querySelectorAll('.row-click').forEach(row => {
-            row.addEventListener('click', (e) => {
-                const idx = parseInt(row.getAttribute('data-idx'));
-                if(!isNaN(idx) && filteredProposals[idx]) {
-                    showPropostaDetalhes(filteredProposals[idx]);
-                }
-            });
-        });
-    }
+    });
+}
 
     function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
-
 async function exportToPDF() {
     const btn = document.getElementById('exportPdfBtn');
     btn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Gerando...';
@@ -1306,48 +1334,61 @@ async function exportToPDF() {
     try {
         const element = document.querySelector('.container');
         
-        // Captura o canvas com alta qualidade
+        // Captura o canvas com escala alta
         const canvas = await html2canvas(element, { 
             scale: 2, 
             useCORS: true,
-            width: element.scrollWidth,
-            windowWidth: document.documentElement.offsetWidth
+            logging: false,
+            windowWidth: element.scrollWidth,
+            windowHeight: element.scrollHeight
         });
 
         const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF('p', 'mm', 'a4');
         
-        const imgWidth = 190; // Largura do A4 com margens (210 - 20)
-        const pageHeight = 297; // Altura do A4
+        // Configurações da página A4 (210mm x 297mm)
+        const pdf = new jsPDF({
+            unit: 'mm',
+            format: 'a4',
+            orientation: 'portrait'
+        });
+        
+        const imgWidth = 190; // Largura da imagem no PDF (mm) - margem de 10mm de cada lado
+        const pageHeight = 287; // Altura útil do A4 (297mm - margens)
+        const imgData = canvas.toDataURL('image/png');
+        
+        // Calcula a altura proporcional da imagem no PDF
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
         
         let heightLeft = imgHeight;
-        let position = 10; // Margem superior inicial
-
-        const imgData = canvas.toDataURL('image/png');
-
+        let position = 10; // Margem superior inicial (mm)
+        let page = 1;
+        
         // Adiciona a primeira página
         pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
         heightLeft -= pageHeight;
-
-        // Enquanto houver conteúdo sobrando, adiciona novas páginas
-        while (heightLeft >= 0) {
-            position = heightLeft - imgHeight; 
+        
+        // Adiciona páginas extras enquanto houver conteúdo
+        while (heightLeft > 0) {
+            position = position - pageHeight; // Move o ponto de corte para cima
             pdf.addPage();
             pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
             heightLeft -= pageHeight;
+            page++;
         }
-
+        
+        // Salva o PDF com nome descritivo
         pdf.save(`MFBD_Dashboard_${new Date().toISOString().slice(0,10)}.pdf`);
         
     } catch(e) { 
-        console.error(e);
-        alert('Erro ao gerar PDF'); 
+        console.error('Erro ao gerar PDF:', e);
+        alert('Erro ao gerar PDF. Tente novamente.'); 
     } finally { 
         btn.innerHTML = '<i class="fas fa-file-pdf"></i> PDF'; 
         btn.disabled = false; 
     }
 }
+
+
 
     function exportToExcel() {
         const data = filteredProposals.map(p => ({
